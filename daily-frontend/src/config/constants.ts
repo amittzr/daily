@@ -3,20 +3,19 @@ import { Platform } from "react-native";
 /**
  * API Base URL Configuration
  *
- * - Web: localhost works directly in the browser
- * - Android Emulator: 10.0.2.2 maps to host machine's localhost
- * - iOS Simulator: localhost works directly
- * - Physical device: Replace with your machine's local IP (e.g., 192.168.1.X)
+ * Using the machine's local network IP so physical devices can reach the backend.
+ * Make sure your phone is on the same Wi-Fi network as this machine.
  *
  * To find your local IP: run `ipconfig` (Windows) or `ifconfig` (Mac/Linux)
  */
+const LOCAL_IP = "192.168.1.200";
+
 const getBaseUrl = (): string => {
-  if (Platform.OS === "android") {
-    // Android emulator maps 10.0.2.2 to host localhost
-    return "http://10.0.2.2:3000";
+  if (Platform.OS === "web") {
+    return "http://localhost:3000";
   }
-  // iOS simulator and Web use localhost directly
-  return "http://localhost:3000";
+  // Physical devices and emulators use the machine's network IP
+  return `http://${LOCAL_IP}:3000`;
 };
 
 export const API_BASE_URL = getBaseUrl();

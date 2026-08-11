@@ -9,15 +9,13 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Platform,
+  ScrollView,
 } from "react-native";
-import DateTimePicker, {
-  DateTimePickerEvent,
-} from "@react-native-community/datetimepicker";
 import OnboardingScreen from "./src/screens/OnboardingScreen";
 import DashboardScreen from "./src/screens/DashboardScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import GroceryModal from "./src/screens/GroceryModal";
+import DateTimePickerCustom from "./src/components/DateTimePicker";
 import { createReminder } from "./src/api/reminderApi";
 
 type Screen = "onboarding" | "dashboard" | "profile";
@@ -32,57 +30,6 @@ export default function App() {
   const [newDate, setNewDate] = useState(new Date());
   const [newPhone, setNewPhone] = useState("");
   const [newUrl, setNewUrl] = useState("");
-
-  // Date/Time picker visibility
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
-
-  const handleDateChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (Platform.OS === "android") {
-      setShowDatePicker(false);
-    }
-    if (selectedDate) {
-      // Keep the time from current newDate, update only the date part
-      const updated = new Date(newDate);
-      updated.setFullYear(selectedDate.getFullYear());
-      updated.setMonth(selectedDate.getMonth());
-      updated.setDate(selectedDate.getDate());
-      setNewDate(updated);
-
-      // On Android, show time picker after date is selected
-      if (Platform.OS === "android") {
-        setTimeout(() => setShowTimePicker(true), 300);
-      }
-    }
-  };
-
-  const handleTimeChange = (_event: DateTimePickerEvent, selectedTime?: Date) => {
-    if (Platform.OS === "android") {
-      setShowTimePicker(false);
-    }
-    if (selectedTime) {
-      const updated = new Date(newDate);
-      updated.setHours(selectedTime.getHours());
-      updated.setMinutes(selectedTime.getMinutes());
-      setNewDate(updated);
-    }
-  };
-
-  const formatDisplayDate = (date: Date): string => {
-    return date.toLocaleDateString("he-IL", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
-  const formatDisplayTime = (date: Date): string => {
-    return date.toLocaleTimeString("he-IL", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   const handleAddReminder = async () => {
     if (!newTitle.trim()) {
@@ -155,103 +102,55 @@ export default function App() {
             onPress={() => setAddModalVisible(false)}
           />
           <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>תזכורת חדשה</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalTitle}>תזכורת חדשה</Text>
 
-            {/* Title Input */}
-            <Text style={styles.inputLabel}>כותרת *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="למשל: תור לרופא שיניים"
-              placeholderTextColor="#9CA3AF"
-              value={newTitle}
-              onChangeText={setNewTitle}
-              textAlign="right"
-            />
-
-            {/* Date Picker */}
-            <Text style={styles.inputLabel}>תאריך *</Text>
-            <TouchableOpacity
-              style={styles.pickerBtn}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <Text style={styles.pickerText}>
-                📅 {formatDisplayDate(newDate)}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Time Picker */}
-            <Text style={styles.inputLabel}>שעה *</Text>
-            <TouchableOpacity
-              style={styles.pickerBtn}
-              onPress={() => setShowTimePicker(true)}
-            >
-              <Text style={styles.pickerText}>
-                🕐 {formatDisplayTime(newDate)}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Native Date Picker */}
-            {showDatePicker && (
-              <DateTimePicker
-                value={newDate}
-                mode="date"
-                display={Platform.OS === "ios" ? "inline" : "calendar"}
-                onChange={handleDateChange}
-                minimumDate={new Date()}
+              {/* Title Input */}
+              <Text style={styles.inputLabel}>כותרת *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="למשל: תור לרופא שיניים"
+                placeholderTextColor="#9CA3AF"
+                value={newTitle}
+                onChangeText={setNewTitle}
+                textAlign="right"
               />
-            )}
 
-            {/* Native Time Picker */}
-            {showTimePicker && (
-              <DateTimePicker
+              {/* Date & Time Picker */}
+              <Text style={styles.inputLabel}>תאריך ושעה *</Text>
+              <DateTimePickerCustom
                 value={newDate}
-                mode="time"
-                display={Platform.OS === "ios" ? "spinner" : "clock"}
-                onChange={handleTimeChange}
-                is24Hour={true}
+                onChange={(date) => setNewDate(date)}
               />
-            )}
 
-            {/* iOS: Confirm button to dismiss pickers */}
-            {Platform.OS === "ios" && (showDatePicker || showTimePicker) && (
-              <TouchableOpacity
-                style={styles.confirmPickerBtn}
-                onPress={() => {
-                  setShowDatePicker(false);
-                  setShowTimePicker(false);
-                }}
-              >
-                <Text style={styles.confirmPickerText}>אישור</Text>
+              {/* Phone Input */}
+              <Text style={styles.inputLabel}>טלפון (אופציונלי)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="03-1234567"
+                placeholderTextColor="#9CA3AF"
+                value={newPhone}
+                onChangeText={setNewPhone}
+                textAlign="right"
+                keyboardType="phone-pad"
+              />
+
+              {/* URL Input */}
+              <Text style={styles.inputLabel}>אתר (אופציונלי)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="https://example.com"
+                placeholderTextColor="#9CA3AF"
+                value={newUrl}
+                onChangeText={setNewUrl}
+                textAlign="right"
+                keyboardType="url"
+              />
+
+              <TouchableOpacity style={styles.submitBtn} onPress={handleAddReminder}>
+                <Text style={styles.submitText}>צור תזכורת</Text>
               </TouchableOpacity>
-            )}
-
-            {/* Phone Input */}
-            <Text style={styles.inputLabel}>טלפון (אופציונלי)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="03-1234567"
-              placeholderTextColor="#9CA3AF"
-              value={newPhone}
-              onChangeText={setNewPhone}
-              textAlign="right"
-              keyboardType="phone-pad"
-            />
-
-            {/* URL Input */}
-            <Text style={styles.inputLabel}>אתר (אופציונלי)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="https://example.com"
-              placeholderTextColor="#9CA3AF"
-              value={newUrl}
-              onChangeText={setNewUrl}
-              textAlign="right"
-              keyboardType="url"
-            />
-
-            <TouchableOpacity style={styles.submitBtn} onPress={handleAddReminder}>
-              <Text style={styles.submitText}>צור תזכורת</Text>
-            </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -277,7 +176,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
-    maxHeight: "85%",
+    maxHeight: "90%",
   },
   modalTitle: {
     fontSize: 20,
@@ -292,7 +191,7 @@ const styles = StyleSheet.create({
     color: "#4B5563",
     textAlign: "right",
     marginBottom: 4,
-    marginTop: 10,
+    marginTop: 12,
   },
   input: {
     borderWidth: 1,
@@ -302,37 +201,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#1F2937",
   },
-  pickerBtn: {
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 12,
-    padding: 14,
-    backgroundColor: "#F9FAFB",
-  },
-  pickerText: {
-    fontSize: 14,
-    color: "#1F2937",
-    textAlign: "right",
-  },
-  confirmPickerBtn: {
-    alignSelf: "center",
-    backgroundColor: "#2563EB",
-    paddingHorizontal: 24,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  confirmPickerText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-    fontSize: 14,
-  },
   submitBtn: {
     backgroundColor: "#2563EB",
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: "center",
     marginTop: 20,
+    marginBottom: 10,
   },
   submitText: {
     fontSize: 15,
