@@ -261,12 +261,12 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: "#F3F4F6",
-    direction: "ltr",
+    writingDirection: "ltr",
   },
   timeGroup: {
     flexDirection: "row",
     alignItems: "center",
-    direction: "ltr",
+    writingDirection: "ltr",
   },
   timeUnit: {
     alignItems: "center",
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#D1D5DB",
     paddingVertical: 2,
-    direction: "ltr",
+    writingDirection: "ltr",
   },
   timeSep: { fontSize: 15, fontWeight: "700", color: "#374151", marginHorizontal: 4 },
   doneBtn: { backgroundColor: "#2563EB", paddingHorizontal: 14, paddingVertical: 5, borderRadius: 8 },

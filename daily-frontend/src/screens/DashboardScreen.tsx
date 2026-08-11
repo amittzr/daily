@@ -12,7 +12,7 @@ import Header from "../components/Header";
 import ProactiveCard from "../components/ProactiveCard";
 import ReminderCard from "../components/ReminderCard";
 import VoiceControls from "../components/VoiceControls";
-import { fetchReminders, createReminder } from "../api/reminderApi";
+import { fetchReminders } from "../api/reminderApi";
 import { Reminder } from "../types";
 
 interface DashboardScreenProps {
@@ -27,7 +27,6 @@ export default function DashboardScreen({
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadReminders = useCallback(async () => {
@@ -53,31 +52,8 @@ export default function DashboardScreen({
     loadReminders();
   };
 
-  const handleMicPress = async () => {
-    if (isRecording) {
-      setIsRecording(false);
-      // Simulate voice-to-reminder creation
-      try {
-        const demoTime = new Date();
-        demoTime.setDate(demoTime.getDate() + 2);
-        demoTime.setHours(14, 0, 0, 0);
-
-        await createReminder({
-          title: "תור לספר ביום חמישי",
-          scheduledTime: demoTime.toISOString(),
-        });
-        await loadReminders();
-        Alert.alert("✓", "תזכורת נוצרה בהצלחה");
-      } catch {
-        Alert.alert("שגיאה", "לא ניתן ליצור תזכורת");
-      }
-    } else {
-      setIsRecording(true);
-    }
-  };
-
   const handleCameraPress = () => {
-    Alert.alert("סימולציה", 'סריקת קבלה / מסמך');
+    Alert.alert("סימולציה", "סריקת קבלה / מסמך");
   };
 
   return (
@@ -144,11 +120,11 @@ export default function DashboardScreen({
         </View>
       </ScrollView>
 
+      {/* Voice controls — handles recording internally */}
       <VoiceControls
-        onMicPress={handleMicPress}
         onCameraPress={handleCameraPress}
         onAddPress={onAddPress}
-        isRecording={isRecording}
+        onReminderCreated={loadReminders}
       />
     </View>
   );

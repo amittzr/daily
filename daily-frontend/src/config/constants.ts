@@ -20,6 +20,7 @@ const getBaseUrl = (): string => {
 
 export const API_BASE_URL = getBaseUrl();
 export const API_REMINDERS_URL = `${API_BASE_URL}/api/reminders`;
+export const API_VOICE_URL = `${API_BASE_URL}/api/voice/process`;
 
 // Mock user ID for MVP testing (matches the seeded user in the backend)
 export const CURRENT_USER_ID = "user-demo-123";

@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import reminderRoutes from "./routes/reminder.routes.js";
+import voiceRoutes from "./routes/voice.routes.js";
 
 // Initialize Express application
 const app = express();
@@ -11,6 +12,7 @@ app.use(express.json());
 
 // --- Routes ---
 app.use("/api/reminders", reminderRoutes);
+app.use("/api/voice", voiceRoutes);
 
 // Health check endpoint
 app.get("/health", (_req, res) => {
