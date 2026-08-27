@@ -9,12 +9,20 @@ interface VoiceControlsProps {
   onCameraPress: () => void;
   onAddPress: () => void;
   onReminderCreated: () => void;
+  onConflictDetected: (data: {
+    reminderId: string;
+    suggestedTime: string;
+    conflictWarning: string;
+    recommendationReason: string;
+    originalDayName: string;
+  }) => void;
 }
 
 export default function VoiceControls({
   onCameraPress,
   onAddPress,
   onReminderCreated,
+  onConflictDetected,
 }: VoiceControlsProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -79,6 +87,19 @@ export default function VoiceControls({
 
       // Notify parent to refresh reminders
       onReminderCreated();
+
+      // If conflict detected, notify parent to show suggestion modal
+      if (result.conflict?.hasConflictOrOverload && result.conflict.suggestedTime) {
+        const DAYS_HE = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+        const originalDay = new Date(result.reminder.scheduledTime).getDay();
+        onConflictDetected({
+          reminderId: result.reminder.id,
+          suggestedTime: result.conflict.suggestedTime,
+          conflictWarning: result.conflict.conflictWarning,
+          recommendationReason: result.conflict.recommendationReason,
+          originalDayName: DAYS_HE[originalDay],
+        });
+      }
     } catch (error) {
       console.error("[VoiceControls] Processing failed:", error);
       setStatusText("שגיאה בעיבוד");

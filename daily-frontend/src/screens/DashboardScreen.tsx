@@ -12,26 +12,32 @@ import Header from "../components/Header";
 import ProactiveCard from "../components/ProactiveCard";
 import ReminderCard from "../components/ReminderCard";
 import VoiceControls from "../components/VoiceControls";
-import { fetchReminders } from "../api/reminderApi";
+import SuggestionModal, { ConflictData } from "../components/SuggestionModal";
+import { fetchReminders, updateReminder } from "../api/reminderApi";
 import { Reminder } from "../types";
 import {
   requestPermissions,
   syncAllRemindersNotifications,
+  scheduleReminderNotifications,
+  cancelReminderNotification,
 } from "../services/notificationService";
 
 interface DashboardScreenProps {
   onProfilePress: () => void;
   onAddPress: () => void;
+  onEditReminder: (reminder: Reminder) => void;
 }
 
 export default function DashboardScreen({
   onProfilePress,
   onAddPress,
+  onEditReminder,
 }: DashboardScreenProps) {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conflictData, setConflictData] = useState<ConflictData | null>(null);
 
   const loadReminders = useCallback(async () => {
     try {
@@ -74,6 +80,36 @@ export default function DashboardScreen({
     setReminders((prev) =>
       prev.map((r) => (r.id === updated.id ? updated : r))
     );
+  };
+
+  // Handle conflict detected from voice processing
+  const handleConflictDetected = (data: Omit<ConflictData, "hasConflictOrOverload">) => {
+    setConflictData({ ...data, hasConflictOrOverload: true });
+  };
+
+  // Accept the AI suggestion — update the reminder's scheduledTime
+  const handleAcceptSuggestion = async () => {
+    if (!conflictData) return;
+    try {
+      const updated = await updateReminder(conflictData.reminderId, {
+        scheduledTime: conflictData.suggestedTime,
+      });
+      // Re-schedule notifications for the new time
+      await cancelReminderNotification(conflictData.reminderId);
+      await scheduleReminderNotifications(updated);
+      // Update local state
+      setReminders((prev) =>
+        prev.map((r) => (r.id === updated.id ? updated : r))
+      );
+    } catch {
+      Alert.alert("שגיאה", "לא ניתן לעדכן את המועד");
+    }
+    setConflictData(null);
+  };
+
+  // Keep original time — just dismiss modal
+  const handleKeepOriginal = () => {
+    setConflictData(null);
   };
 
   return (
@@ -137,6 +173,7 @@ export default function DashboardScreen({
                 isLast={index === reminders.length - 1}
                 onDeleted={handleReminderDeleted}
                 onUpdated={handleReminderUpdated}
+                onEdit={() => onEditReminder(reminder)}
               />
             ))}
         </View>
@@ -147,6 +184,15 @@ export default function DashboardScreen({
         onCameraPress={handleCameraPress}
         onAddPress={onAddPress}
         onReminderCreated={loadReminders}
+        onConflictDetected={handleConflictDetected}
+      />
+
+      {/* AI Suggestion Modal for schedule conflicts */}
+      <SuggestionModal
+        visible={conflictData !== null}
+        conflict={conflictData}
+        onAcceptSuggestion={handleAcceptSuggestion}
+        onKeepOriginal={handleKeepOriginal}
       />
     </View>
   );

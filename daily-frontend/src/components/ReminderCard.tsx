@@ -19,6 +19,7 @@ interface ReminderCardProps {
   isLast?: boolean;
   onDeleted: (id: string) => void;
   onUpdated: (updated: Reminder) => void;
+  onEdit: () => void;
 }
 
 /**
@@ -61,6 +62,7 @@ export default function ReminderCard({
   isLast,
   onDeleted,
   onUpdated,
+  onEdit,
 }: ReminderCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [status, setStatus] = useState(reminder.status);
@@ -213,6 +215,10 @@ export default function ReminderCard({
               )}
 
               <View style={styles.actions}>
+                <TouchableOpacity style={styles.editBtn} onPress={onEdit}>
+                  <Ionicons name="create-outline" size={13} color="#7C3AED" />
+                  <Text style={styles.editText}>עריכה</Text>
+                </TouchableOpacity>
                 {reminder.phoneNumber && (
                   <TouchableOpacity style={styles.callBtn} onPress={handleCall}>
                     <Ionicons name="call-outline" size={13} color="#2563EB" />
@@ -357,6 +363,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     color: "#2563EB",
+  },
+  editBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F5F3FF",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 5,
+  },
+  editText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#7C3AED",
   },
   webBtn: {
     flexDirection: "row",

@@ -5,6 +5,12 @@ import { Reminder, ApiResponse } from "../types";
 interface VoiceProcessResult {
   reminder: Reminder;
   transcript: string;
+  conflict: {
+    hasConflictOrOverload: boolean;
+    suggestedTime: string;
+    conflictWarning: string;
+    recommendationReason: string;
+  } | null;
 }
 
 /**
@@ -41,7 +47,7 @@ export async function processVoiceRecording(audioUri: string): Promise<VoiceProc
       throw new Error(errData.error || `Server error ${response.status}`);
     }
 
-    const result: ApiResponse<Reminder> & { meta?: { transcript: string } } =
+    const result: ApiResponse<Reminder> & { meta?: { transcript: string; conflict?: VoiceProcessResult["conflict"] } } =
       await response.json();
 
     if (!result.success || !result.data) {
@@ -51,6 +57,7 @@ export async function processVoiceRecording(audioUri: string): Promise<VoiceProc
     return {
       reminder: result.data,
       transcript: result.meta?.transcript || "",
+      conflict: result.meta?.conflict || null,
     };
   } catch (error) {
     console.error("[voiceApi] processVoiceRecording error:", error);

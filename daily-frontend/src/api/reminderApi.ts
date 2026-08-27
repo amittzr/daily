@@ -28,14 +28,22 @@ export async function fetchReminders(): Promise<Reminder[]> {
 }
 
 /**
- * Create a new reminder.
+ * Create a new reminder. Returns the reminder and optional conflict metadata.
  */
 export async function createReminder(params: {
   title: string;
   scheduledTime: string;
   phoneNumber?: string;
   websiteUrl?: string;
-}): Promise<Reminder> {
+}): Promise<{
+  reminder: Reminder;
+  conflict: {
+    hasConflictOrOverload: boolean;
+    suggestedTime: string;
+    conflictWarning: string;
+    recommendationReason: string;
+  } | null;
+}> {
   try {
     const response = await fetch(API_REMINDERS_URL, {
       method: "POST",
@@ -54,13 +62,18 @@ export async function createReminder(params: {
       throw new Error(errData.error || `Server error ${response.status}`);
     }
 
-    const result: ApiResponse<Reminder> = await response.json();
+    const result: ApiResponse<Reminder> & {
+      meta?: { conflict?: { hasConflictOrOverload: boolean; suggestedTime: string; conflictWarning: string; recommendationReason: string } | null };
+    } = await response.json();
 
     if (!result.success || !result.data) {
       throw new Error(result.error || "Unknown error");
     }
 
-    return result.data;
+    return {
+      reminder: result.data,
+      conflict: result.meta?.conflict || null,
+    };
   } catch (error) {
     console.error("[reminderApi] createReminder error:", error);
     throw error;
@@ -69,11 +82,12 @@ export async function createReminder(params: {
 
 /**
  * Update a reminder's fields (status, title, scheduledTime, etc.).
+ * Returns the updated reminder and optional conflict metadata.
  */
 export async function updateReminder(
   id: string,
   updates: Partial<Pick<Reminder, "title" | "scheduledTime" | "phoneNumber" | "websiteUrl" | "status">>
-): Promise<Reminder> {
+): Promise<Reminder & { conflict?: { hasConflictOrOverload: boolean; suggestedTime: string; conflictWarning: string; recommendationReason: string } | null }> {
   try {
     const response = await fetch(`${API_REMINDERS_URL}/${id}`, {
       method: "PATCH",
@@ -86,13 +100,18 @@ export async function updateReminder(
       throw new Error(errData.error || `Server error ${response.status}`);
     }
 
-    const result: ApiResponse<Reminder> = await response.json();
+    const result: ApiResponse<Reminder> & {
+      meta?: { conflict?: { hasConflictOrOverload: boolean; suggestedTime: string; conflictWarning: string; recommendationReason: string } | null };
+    } = await response.json();
 
     if (!result.success || !result.data) {
       throw new Error(result.error || "Unknown error");
     }
 
-    return result.data;
+    // Attach conflict to the returned object for the caller to check
+    const reminder = result.data as Reminder & { conflict?: typeof result.meta.conflict };
+    reminder.conflict = result.meta?.conflict || null;
+    return reminder;
   } catch (error) {
     console.error("[reminderApi] updateReminder error:", error);
     throw error;
