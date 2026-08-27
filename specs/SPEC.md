@@ -133,6 +133,9 @@
 - Modal form with: title, date/time picker, phone, URL
 - Custom Hebrew calendar component (no native picker dependency)
 - Hour/minute spinners with arrow controls
+- KeyboardAvoidingView wraps modal (iOS padding / Android height)
+- Tap outside inputs dismisses keyboard
+- ScrollView with keyboardShouldPersistTaps="handled"
 
 ### 3. Smart Local Notifications
 - Automatic tiered scheduling based on time distance:
@@ -147,6 +150,10 @@
 
 ### 4. Reminder Display
 - Cards with Hebrew-friendly time formatting (היום/מחר/day name)
+- Tap to expand/collapse — reveals description, action buttons
+- Circle checkbox to toggle pending ↔ completed (strikethrough + muted when done)
+- Overdue badge ("עבר הזמן") in red if past time + still pending
+- Swipe left to reveal red delete action (PanResponder + Animated)
 - Quick-dial button (opens phone dialer)
 - Quick-link button (opens browser)
 - Pull-to-refresh
@@ -249,7 +256,7 @@ daily-backend/
 ## Current Limitations / TODO
 
 - [ ] Authentication (currently uses hardcoded `user-demo-123`)
-- [ ] Reminder deletion / completion / editing
+- [x] ~~Reminder deletion / completion / editing~~ ✓ Implemented
 - [ ] Push notifications (requires dev build, not Expo Go)
 - [ ] Receipt scanning (camera button is placeholder)
 - [ ] Proactive insights (real AI analysis)

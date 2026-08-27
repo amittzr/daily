@@ -189,6 +189,8 @@
 
     .method-get { background: var(--green-light); color: var(--green); }
     .method-post { background: var(--blue-light); color: var(--blue); }
+    .method-patch { background: #FEF3C7; color: #D97706; }
+    .method-delete { background: var(--red-light); color: var(--red); }
 
     /* Feature Cards */
     .feature-grid {
@@ -339,6 +341,16 @@
       content: '○';
       color: var(--gray-400);
       font-size: 16px;
+    }
+
+    .todo-list li.done {
+      text-decoration: line-through;
+      color: var(--gray-400);
+    }
+
+    .todo-list li.done::before {
+      content: '●';
+      color: var(--green);
     }
 
     /* Footer */
@@ -499,6 +511,16 @@
             <td>Create reminder (JSON body)</td>
           </tr>
           <tr>
+            <td><span class="method-badge method-patch">PATCH</span></td>
+            <td><code>/api/reminders/:id</code></td>
+            <td>Update reminder fields or status</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-delete">DELETE</span></td>
+            <td><code>/api/reminders/:id</code></td>
+            <td>Delete a reminder by UUID</td>
+          </tr>
+          <tr>
             <td><span class="method-badge method-post">POST</span></td>
             <td><code>/api/voice/process</code></td>
             <td>Upload audio → transcribe → parse → save</td>
@@ -520,7 +542,7 @@
       <div class="feature-card">
         <span class="feature-tag tag-active">Active</span>
         <h3>Manual Reminder Creation</h3>
-        <p>Modal form with custom Hebrew calendar, hour/minute spinners, phone & URL fields. No native picker dependency.</p>
+        <p>Modal form with custom Hebrew calendar, hour/minute spinners, phone & URL fields. KeyboardAvoidingView + dismiss on tap outside.</p>
       </div>
       <div class="feature-card">
         <span class="feature-tag tag-active">Active</span>
@@ -530,7 +552,7 @@
       <div class="feature-card">
         <span class="feature-tag tag-active">Active</span>
         <h3>Reminder Dashboard</h3>
-        <p>Cards with Hebrew time (היום/מחר), quick-dial & quick-link actions, pull-to-refresh, loading/error states.</p>
+        <p>Tap to expand/collapse. Circle checkbox toggles completed (strikethrough). Overdue badge (עבר הזמן). Swipe left to delete. Quick-dial & quick-link. Pull-to-refresh.</p>
       </div>
       <div class="feature-card shell">
         <span class="feature-tag tag-shell">UI Shell</span>
@@ -662,7 +684,7 @@ npx expo start</div>
     <h2 class="section-title">Roadmap / TODO</h2>
     <ul class="todo-list">
       <li>Authentication (replace hardcoded user-demo-123)</li>
-      <li>Reminder deletion / completion / editing</li>
+      <li class="done">Reminder deletion / completion / editing ✓</li>
       <li>Push notifications (requires dev build)</li>
       <li>Receipt scanning via camera</li>
       <li>Proactive AI insights (real analysis)</li>
