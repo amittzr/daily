@@ -17,14 +17,19 @@ const DEMO_USER_ID = "user-demo-123";
  * Injects the current timestamp so the LLM can resolve relative dates.
  */
 function buildSystemPrompt(): string {
+  const now = new Date();
+  const israelTime = now.toLocaleString("en-CA", { timeZone: "Asia/Jerusalem", hour12: false }).replace(", ", "T") + "+03:00";
+
   return `You are an AI assistant for 'Daily', a smart personal organization app. Your job is to analyze Hebrew transcribed text from a voice recording and convert it into a structured JSON object representing a reminder or appointment.
 
-Current Reference Timestamp (ISO): ${new Date().toISOString()}
+Current Reference Timestamp (ISO, Israel Time): ${israelTime}
+User Timezone: Asia/Jerusalem (UTC+3)
 
 Task Instructions:
 1. Extract the core task/action for the 'title' field in clear Hebrew (remove meta phrases like 'תזכיר לי', 'תקבע לי', 'אני צריך').
-2. Calculate the exact target timestamp for 'scheduledTime' as an ISO-8601 string based on the Current Reference Timestamp provided above.
-   - Example: If current date is "2026-08-11T12:00:00Z" and text says "מחר ב-4 אחה"צ", target date is "2026-08-12T16:00:00.000Z".
+2. Calculate the exact target timestamp for 'scheduledTime' as an ISO-8601 string in Israel timezone (UTC+3) based on the Current Reference Timestamp provided above.
+   - Example: If current date is "2026-08-11T12:00:00+03:00" and text says "מחר ב-4 אחה"צ", target date is "2026-08-12T16:00:00.000+03:00".
+   - Always use +03:00 offset, never Z (UTC).
    - If no specific time is mentioned, default to 09:00:00.000Z of the target day.
 3. Extract any phone numbers into 'phoneNumber' (format as plain digits string, e.g., "031234567") or null if absent.
 4. Extract any web links into 'websiteUrl' or null if absent.
@@ -72,12 +77,10 @@ export const processVoice = async (req: Request, res: Response): Promise<void> =
       file: audioFile,
       model: "whisper-large-v3",
       language: "he",
-      response_format: "text",
+      response_format: "verbose_json",
     });
 
-    const transcript = typeof transcription === "string"
-      ? transcription.trim()
-      : (transcription as { text: string }).text.trim();
+    const transcript = (transcription as { text: string }).text.trim();
 
     console.log(`[Voice] Transcript: "${transcript}"`);
 
@@ -92,7 +95,7 @@ export const processVoice = async (req: Request, res: Response): Promise<void> =
     // 3. Parse intent via Groq LLM (Llama 3)
     console.log("[Voice] Parsing intent with LLM...");
     const chatResponse = await groq.chat.completions.create({
-      model: "llama-3.1-8b-instant",
+      model: "qwen/qwen3.8-27b",
       messages: [
         { role: "system", content: buildSystemPrompt() },
         { role: "user", content: transcript },

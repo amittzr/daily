@@ -8,7 +8,7 @@ import { Platform } from "react-native";
  *
  * To find your local IP: run `ipconfig` (Windows) or `ifconfig` (Mac/Linux)
  */
-const LOCAL_IP = "192.168.1.200";
+const LOCAL_IP = "10.3.0.249";
 
 const getBaseUrl = (): string => {
   if (Platform.OS === "web") {
