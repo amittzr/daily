@@ -163,6 +163,24 @@
 - Currently: static insurance renewal demo
 - Designed for future AI-driven proactive suggestions
 
+### 6. Smart Calendar Conflict Detection
+- When creating or editing a reminder, the system checks the user's weekly schedule
+- Voice path: LLM receives full 7-day schedule as context, detects overload (≥3 events/day or overlaps)
+- Manual/edit path: backend queries same-day events post-save, detects overload
+- Respects Israeli business days: Sun-Thu active, Friday half-day (until 13:00), Saturday closed
+- If conflict detected, returns: `conflictWarning` (Hebrew), `suggestedTime`, `recommendationReason`
+- Frontend shows SuggestionModal with:
+  - ⚠️ Warning line explaining the overload
+  - 💡 AI suggestion for an alternative time slot
+  - "קבל את ההצעה" button → PATCH reminder to suggested time
+  - "השאר ביום X" button → dismiss, keep original
+- Triggers on: voice creation, manual creation, and reminder editing
+
+### 7. Reminder Editing
+- Tap reminder card → expand → purple "עריכה" button
+- Opens pre-filled modal with title, date/time, phone, URL
+- On save: PATCH API → re-schedules notifications → checks for conflict
+
 ### 6. Onboarding
 - Module selection screen (groceries, insurance, finance, appointments)
 - Checkbox-based selection with visual feedback
@@ -191,7 +209,8 @@ daily-frontend/
 │   │   ├── DateTimePicker.tsx        # Custom Hebrew calendar + time picker
 │   │   ├── Header.tsx                # App header with avatar
 │   │   ├── ProactiveCard.tsx         # Urgent notification card
-│   │   ├── ReminderCard.tsx          # Single reminder display
+│   │   ├── ReminderCard.tsx          # Single reminder display (expand/swipe/edit)
+│   │   ├── SuggestionModal.tsx       # AI conflict suggestion modal
 │   │   └── VoiceControls.tsx         # Mic button + recording UI
 │   ├── config/
 │   │   └── constants.ts              # API URLs, user ID
