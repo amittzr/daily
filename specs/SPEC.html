@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily — App Specification</title>
+  <style>
+    :root {
+      --blue: #2563EB;
+      --blue-light: #EFF6FF;
+      --blue-dark: #1E40AF;
+      --gray-50: #F9FAFB;
+      --gray-100: #F3F4F6;
+      --gray-200: #E5E7EB;
+      --gray-400: #9CA3AF;
+      --gray-600: #4B5563;
+      --gray-700: #374151;
+      --gray-900: #1F2937;
+      --green: #059669;
+      --green-light: #ECFDF5;
+      --red: #DC2626;
+      --red-light: #FEF2F2;
+      --purple: #7C3AED;
+      --purple-light: #F5F3FF;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--gray-50);
+      color: var(--gray-900);
+      line-height: 1.6;
+      direction: ltr;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, var(--blue) 0%, var(--blue-dark) 100%);
+      color: white;
+      padding: 60px 24px;
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-size: 48px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      letter-spacing: -1px;
+    }
+
+    .hero p {
+      font-size: 18px;
+      opacity: 0.9;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .hero .badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-size: 13px;
+      margin-top: 16px;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+
+    .section {
+      margin-bottom: 48px;
+    }
+
+    .section-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--gray-900);
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 3px solid var(--blue);
+      display: inline-block;
+    }
+
+    /* Tech Stack Grid */
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 16px;
+    }
+
+    .tech-card {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 12px;
+      padding: 20px;
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+
+    .tech-card:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      transform: translateY(-2px);
+    }
+
+    .tech-card .label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--blue);
+      margin-bottom: 6px;
+    }
+
+    .tech-card .value {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--gray-900);
+    }
+
+    .tech-card .version {
+      font-size: 12px;
+      color: var(--gray-400);
+      margin-top: 4px;
+    }
+
+    /* Architecture */
+    .arch-diagram {
+      background: var(--gray-900);
+      color: #E5E7EB;
+      border-radius: 12px;
+      padding: 24px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    /* Tables */
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 12px;
+      border: 1px solid var(--gray-200);
+      background: white;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th {
+      background: var(--gray-50);
+      font-weight: 700;
+      text-align: left;
+      padding: 12px 16px;
+      border-bottom: 2px solid var(--gray-200);
+      color: var(--gray-700);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--gray-100);
+      color: var(--gray-600);
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    td:first-child {
+      font-weight: 600;
+      color: var(--gray-900);
+    }
+
+    .method-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: monospace;
+    }
+
+    .method-get { background: var(--green-light); color: var(--green); }
+    .method-post { background: var(--blue-light); color: var(--blue); }
+
+    /* Feature Cards */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
+    }
+
+    .feature-card {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 14px;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: var(--blue);
+    }
+
+    .feature-card.shell::before { background: var(--gray-400); }
+    .feature-card.ai::before { background: var(--purple); }
+
+    .feature-card h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--gray-900);
+    }
+
+    .feature-card p {
+      font-size: 13px;
+      color: var(--gray-600);
+      line-height: 1.6;
+    }
+
+    .feature-tag {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+
+    .tag-active { background: var(--green-light); color: var(--green); }
+    .tag-shell { background: var(--gray-100); color: var(--gray-400); }
+    .tag-ai { background: var(--purple-light); color: var(--purple); }
+
+    /* Notification Tiers */
+    .tier-table td:nth-child(2) {
+      font-size: 13px;
+    }
+
+    /* Code Block */
+    .code-block {
+      background: var(--gray-900);
+      color: #A5F3FC;
+      border-radius: 10px;
+      padding: 20px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      overflow-x: auto;
+      line-height: 1.7;
+    }
+
+    .code-block .comment { color: #6B7280; }
+    .code-block .cmd { color: #FCD34D; }
+
+    /* File Tree */
+    .file-tree {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 12px;
+      padding: 20px 24px;
+      font-size: 13px;
+      line-height: 1.4;
+      color: var(--gray-700);
+    }
+
+    .file-tree .tree-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--gray-900);
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--gray-100);
+    }
+
+    .file-tree .tree-item {
+      padding: 3px 0;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .file-tree .tree-branch {
+      font-family: 'Courier New', monospace;
+      color: var(--gray-400);
+      white-space: pre;
+      user-select: none;
+    }
+
+    .file-tree .folder {
+      color: var(--blue);
+      font-weight: 700;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    .file-tree .file {
+      color: var(--gray-700);
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+    }
+
+    .file-tree .desc {
+      color: var(--gray-400);
+      font-size: 11px;
+      font-style: italic;
+      margin-left: 6px;
+    }
+
+    /* TODO List */
+    .todo-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .todo-list li {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--gray-100);
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .todo-list li::before {
+      content: '○';
+      color: var(--gray-400);
+      font-size: 16px;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 32px;
+      color: var(--gray-400);
+      font-size: 13px;
+      border-top: 1px solid var(--gray-200);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 32px; }
+      .tech-grid { grid-template-columns: 1fr; }
+      .feature-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Hero -->
+<div class="hero">
+  <h1>Daily</h1>
+  <p>Smart Personal Assistant — App Specification</p>
+  <span class="badge">MVP: Reminders & Voice</span>
+</div>
+
+<div class="container">
+
+  <!-- Tech Stack -->
+  <div class="section">
+    <h2 class="section-title">Tech Stack</h2>
+    <div class="tech-grid">
+      <div class="tech-card">
+        <div class="label">Frontend</div>
+        <div class="value">React Native + Expo</div>
+        <div class="version">SDK 54 / React Native 0.81 / React 19.1</div>
+      </div>
+      <div class="tech-card">
+        <div class="label">Backend</div>
+        <div class="value">Node.js + Express</div>
+        <div class="version">TypeScript (ESM) / Node 22</div>
+      </div>
+      <div class="tech-card">
+        <div class="label">Database</div>
+        <div class="value">PostgreSQL 15</div>
+        <div class="version">Docker / Prisma 6.19</div>
+      </div>
+      <div class="tech-card">
+        <div class="label">AI — Speech</div>
+        <div class="value">Groq Whisper</div>
+        <div class="version">whisper-large-v3 (Hebrew)</div>
+      </div>
+      <div class="tech-card">
+        <div class="label">AI — Intent</div>
+        <div class="value">Groq LLM</div>
+        <div class="version">qwen/qwen3.8-27b (JSON mode)</div>
+      </div>
+      <div class="tech-card">
+        <div class="label">Notifications</div>
+        <div class="value">expo-notifications</div>
+        <div class="version">Local scheduled (Expo Go compatible)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Architecture -->
+  <div class="section">
+    <h2 class="section-title">Architecture</h2>
+    <div class="arch-diagram">
+┌─────────────────────────────────────────────────────┐
+│  📱 Mobile App (Expo Go / iOS / Android / Web)      │
+│                                                     │
+│  ┌─────────────┐  ┌────────────┐  ┌─────────────┐  │
+│  │  Dashboard  │  │   Voice    │  │ Notification│  │
+│  │   Screen    │  │  Controls  │  │   Service   │  │
+│  └──────┬──────┘  └─────┬──────┘  └──────┬──────┘  │
+│         │                │                │         │
+│         ▼                ▼                ▼         │
+│  ┌──────────────────────────────────────────────┐   │
+│  │  API Layer: reminderApi.ts + voiceApi.ts     │   │
+│  └──────────────────────┬───────────────────────┘   │
+└─────────────────────────┼───────────────────────────┘
+                          │ HTTP (JSON / multipart)
+┌─────────────────────────┼───────────────────────────┐
+│  🖥️  Backend (Express)   │  :3000                    │
+│                          │                           │
+│  ┌───────────────────────┼────────────────────────┐  │
+│  │  /api/reminders       │  /api/voice/process    │  │
+│  └───────────┬───────────┼────────────┬───────────┘  │
+│              │                        │              │
+│              ▼                        ▼              │
+│  ┌───────────────┐    ┌──────────────────────────┐   │
+│  │   Reminder    │    │   Voice Controller       │   │
+│  │  Controller   │    │  Whisper → LLM → DB      │   │
+│  └───────┬───────┘    └────────────┬─────────────┘   │
+│          │                         │                 │
+│          ▼                         ▼                 │
+│  ┌───────────────────────────────────────────────┐   │
+│  │  🗄️  Prisma ORM → PostgreSQL 15 (Docker)      │   │
+│  └───────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────┘</div>
+  </div>
+
+  <!-- Database -->
+  <div class="section">
+    <h2 class="section-title">Database Schema</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Table</th><th>Column</th><th>Type</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td rowspan="5"><strong>users</strong></td><td>id</td><td>UUID (PK)</td><td>Auto-generated</td></tr>
+          <tr><td>email</td><td>String</td><td>Unique</td></tr>
+          <tr><td>firstName</td><td>String</td><td></td></tr>
+          <tr><td>createdAt</td><td>DateTime</td><td></td></tr>
+          <tr><td>updatedAt</td><td>DateTime</td><td></td></tr>
+          <tr><td rowspan="11"><strong>reminders</strong></td><td>id</td><td>UUID (PK)</td><td>Auto-generated</td></tr>
+          <tr><td>userId</td><td>UUID (FK)</td><td>→ users.id</td></tr>
+          <tr><td>title</td><td>String</td><td>Hebrew text</td></tr>
+          <tr><td>description</td><td>String?</td><td>Optional</td></tr>
+          <tr><td>scheduledTime</td><td>DateTime</td><td>ISO-8601 with TZ</td></tr>
+          <tr><td>phoneNumber</td><td>String?</td><td>Quick-dial</td></tr>
+          <tr><td>websiteUrl</td><td>String?</td><td>Quick-link</td></tr>
+          <tr><td>status</td><td>String</td><td>Default: "pending"</td></tr>
+          <tr><td>isProactive</td><td>Boolean</td><td>Default: false</td></tr>
+          <tr><td>notificationOffsetMinutes</td><td>Int?</td><td>Default: 0</td></tr>
+          <tr><td>createdAt / updatedAt</td><td>DateTime</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- API -->
+  <div class="section">
+    <h2 class="section-title">API Endpoints</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td><code>/health</code></td>
+            <td>Health check</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td><code>/api/reminders?userId=&lt;uuid&gt;</code></td>
+            <td>Fetch all reminders sorted by scheduledTime</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-post">POST</span></td>
+            <td><code>/api/reminders</code></td>
+            <td>Create reminder (JSON body)</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-post">POST</span></td>
+            <td><code>/api/voice/process</code></td>
+            <td>Upload audio → transcribe → parse → save</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <div class="section">
+    <h2 class="section-title">Features</h2>
+    <div class="feature-grid">
+      <div class="feature-card ai">
+        <span class="feature-tag tag-ai">AI Pipeline</span>
+        <h3>Voice-to-Reminder</h3>
+        <p>Record audio → Groq Whisper transcribes Hebrew → LLM extracts intent (title, time, phone, URL) → saves to DB. Timezone-aware (Israel +03:00).</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-tag tag-active">Active</span>
+        <h3>Manual Reminder Creation</h3>
+        <p>Modal form with custom Hebrew calendar, hour/minute spinners, phone & URL fields. No native picker dependency.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-tag tag-active">Active</span>
+        <h3>Smart Local Notifications</h3>
+        <p>Auto-tiered scheduling: 1 week / 1 day / 2 hours / exact. Appointment keywords get extra 5-hour advance alert. Works in Expo Go.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-tag tag-active">Active</span>
+        <h3>Reminder Dashboard</h3>
+        <p>Cards with Hebrew time (היום/מחר), quick-dial & quick-link actions, pull-to-refresh, loading/error states.</p>
+      </div>
+      <div class="feature-card shell">
+        <span class="feature-tag tag-shell">UI Shell</span>
+        <h3>Proactive Insights</h3>
+        <p>ProactiveCard component for urgent AI-driven suggestions. Currently: static insurance renewal demo.</p>
+      </div>
+      <div class="feature-card shell">
+        <span class="feature-tag tag-shell">UI Shell</span>
+        <h3>Grocery List</h3>
+        <p>Smart frequency-based grocery suggestions with savings comparison. Receipt scanning placeholder.</p>
+      </div>
+      <div class="feature-card shell">
+        <span class="feature-tag tag-shell">UI Shell</span>
+        <h3>Profile & Documents</h3>
+        <p>Document upload placeholders (insurance, medical). User info display.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-tag tag-active">Active</span>
+        <h3>Onboarding</h3>
+        <p>Module selection (groceries, insurance, finance, appointments) with checkbox UI.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Tiers -->
+  <div class="section">
+    <h2 class="section-title">Notification Scheduling Logic</h2>
+    <div class="table-wrap">
+      <table class="tier-table">
+        <thead>
+          <tr><th>Time Until Reminder</th><th>Notifications Sent</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>&gt; 7 days</strong></td><td>🔔 1 week before → 🔔 1 day before → 🔔 2 hours before → 🔔 exact time</td></tr>
+          <tr><td><strong>2–7 days</strong></td><td>🔔 1 day before → 🔔 2 hours before → 🔔 exact time</td></tr>
+          <tr><td><strong>5h – 2 days</strong></td><td>🔔 2 hours before → 🔔 exact time</td></tr>
+          <tr><td><strong>&lt; 5 hours</strong></td><td>🔔 exact time only</td></tr>
+          <tr><td><strong>Appointments</strong> (תור, רופא...)</td><td>+ extra 🔔 5 hours before</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Project Structure -->
+  <div class="section">
+    <h2 class="section-title">Project Structure</h2>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+      <div class="file-tree">
+        <div class="tree-title">📱 daily-frontend/</div>
+        <div class="tree-item"><span class="tree-branch">├──</span> <span class="file">App.tsx</span> <span class="desc">Root + nav + modals</span></div>
+        <div class="tree-item"><span class="tree-branch">├──</span> <span class="folder">src/api/</span></div>
+        <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="file">reminderApi.ts</span></div>
+        <div class="tree-item"><span class="tree-branch">│   └──</span> <span class="file">voiceApi.ts</span></div>
+        <div class="tree-item"><span class="tree-branch">├──</span> <span class="folder">src/components/</span></div>
+        <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="file">DateTimePicker.tsx</span></div>
+        <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="file">Header.tsx</span></div>
+        <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="file">ProactiveCard.tsx</span></div>
+        <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="file">ReminderCard.tsx</span></div>
+        <div class="tree-item"><span class="tree-branch">│   └──</span> <span class="file">VoiceControls.tsx</span></div>
+        <div class="tree-item"><span class="tree-branch">├──</span> <span class="folder">src/screens/</span></div>
+        <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="file">DashboardScreen.tsx</span></div>
+        <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="file">GroceryModal.tsx</span></div>
+        <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="file">OnboardingScreen.tsx</span></div>
+        <div class="tree-item"><span class="tree-branch">│   └──</span> <span class="file">ProfileScreen.tsx</span></div>
+        <div class="tree-item"><span class="tree-branch">├──</span> <span class="folder">src/services/</span></div>
+        <div class="tree-item"><span class="tree-branch">│   └──</span> <span class="file">notificationService.ts</span></div>
+        <div class="tree-item"><span class="tree-branch">└──</span> <span class="folder">src/types/</span></div>
+        <div class="tree-item"><span class="tree-branch">    └──</span> <span class="file">index.ts</span></div>
+      </div>
+      <div class="file-tree">
+        <div class="tree-title">🖥️ daily-backend/</div>
+        <div class="tree-item"><span class="tree-branch">├──</span> <span class="folder">src/</span></div>
+        <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="file">app.ts</span> <span class="desc">Express setup</span></div>
+        <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="file">server.ts</span> <span class="desc">Entry point</span></div>
+        <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="folder">config/</span></div>
+        <div class="tree-item"><span class="tree-branch">│   │   └──</span> <span class="file">db.ts</span> <span class="desc">Prisma client</span></div>
+        <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="folder">controllers/</span></div>
+        <div class="tree-item"><span class="tree-branch">│   │   ├──</span> <span class="file">reminder.controller.ts</span></div>
+        <div class="tree-item"><span class="tree-branch">│   │   └──</span> <span class="file">voice.controller.ts</span></div>
+        <div class="tree-item"><span class="tree-branch">│   └──</span> <span class="folder">routes/</span></div>
+        <div class="tree-item"><span class="tree-branch">│       ├──</span> <span class="file">reminder.routes.ts</span></div>
+        <div class="tree-item"><span class="tree-branch">│       └──</span> <span class="file">voice.routes.ts</span></div>
+        <div class="tree-item"><span class="tree-branch">├──</span> <span class="folder">prisma/</span></div>
+        <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="file">schema.prisma</span></div>
+        <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="file">seed.ts</span></div>
+        <div class="tree-item"><span class="tree-branch">│   └──</span> <span class="folder">migrations/</span></div>
+        <div class="tree-item"><span class="tree-branch">└──</span> <span class="file">docker-compose.yml</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Infrastructure -->
+  <div class="section">
+    <h2 class="section-title">Infrastructure</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Service</th><th>Port</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Backend (Express)</td><td>3000</td><td>Hot-reload via tsx watch</td></tr>
+          <tr><td>PostgreSQL</td><td>5433</td><td>Docker, mapped from 5432</td></tr>
+          <tr><td>Expo Dev Server</td><td>8081</td><td>Web + QR code for Expo Go</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Setup -->
+  <div class="section">
+    <h2 class="section-title">Quick Start</h2>
+    <div class="code-block"><span class="comment"># Backend</span>
+<span class="cmd">cd daily-backend</span>
+docker compose up -d
+npm install
+npx prisma migrate dev
+npx prisma generate
+npm run seed
+npm run dev
+
+<span class="comment"># Frontend (separate terminal)</span>
+<span class="cmd">cd daily-frontend</span>
+npm install
+npx expo start</div>
+  </div>
+
+  <!-- TODO -->
+  <div class="section">
+    <h2 class="section-title">Roadmap / TODO</h2>
+    <ul class="todo-list">
+      <li>Authentication (replace hardcoded user-demo-123)</li>
+      <li>Reminder deletion / completion / editing</li>
+      <li>Push notifications (requires dev build)</li>
+      <li>Receipt scanning via camera</li>
+      <li>Proactive AI insights (real analysis)</li>
+      <li>Grocery list automation (receipt parsing)</li>
+      <li>Document upload & processing</li>
+      <li>Multi-user support</li>
+      <li>Offline support / caching</li>
+      <li>Migrate expo-av → expo-audio (deprecated in SDK 55)</li>
+    </ul>
+  </div>
+
+</div>
+
+<div class="footer">
+  Daily App Specification — Last updated: August 27, 2026
+</div>
+
+</body>
+</html>

@@ -13,6 +13,7 @@
     "expo": "~54.0.0",
     "expo-asset": "~11.1.0",
     "expo-av": "~15.0.0",
+    "expo-notifications": "^57.0.15",
     "expo-status-bar": "~2.2.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",

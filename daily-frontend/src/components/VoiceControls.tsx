@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "rea
 import { Audio } from "expo-av";
 import { Ionicons } from "@expo/vector-icons";
 import { processVoiceRecording } from "../api/voiceApi";
+import { scheduleReminderNotifications } from "../services/notificationService";
 
 interface VoiceControlsProps {
   onCameraPress: () => void;
@@ -69,6 +70,9 @@ export default function VoiceControls({
 
       // Send to backend for transcription + parsing
       const result = await processVoiceRecording(uri);
+
+      // Schedule local notification for the new reminder
+      await scheduleReminderNotifications(result.reminder);
 
       setStatusText(`✓ ${result.reminder.title}`);
       setTimeout(() => setStatusText(null), 3000);

@@ -33,9 +33,10 @@ Task Instructions:
    - If no specific time is mentioned, default to 09:00:00.000Z of the target day.
 3. Extract any phone numbers into 'phoneNumber' (format as plain digits string, e.g., "031234567") or null if absent.
 4. Extract any web links into 'websiteUrl' or null if absent.
+5. If the user explicitly mentions advance notification timing (e.g., "תזכיר לי יום לפני" -> 1440, "תזכיר לי שעה לפני" -> 60, "תזכיר לי שעתיים לפני" -> 120), set 'notificationOffsetMinutes' to the number of minutes before. Otherwise set to 0.
 
 CRITICAL: Return ONLY a valid JSON object matching this schema, with no markdown wrappers or conversation:
-{"title": "string", "scheduledTime": "string (ISO 8601)", "phoneNumber": "string or null", "websiteUrl": "string or null"}`;
+{"title": "string", "scheduledTime": "string (ISO 8601)", "phoneNumber": "string or null", "websiteUrl": "string or null", "notificationOffsetMinutes": "number"}`;
 }
 
 /**
@@ -122,6 +123,7 @@ export const processVoice = async (req: Request, res: Response): Promise<void> =
       scheduledTime: string;
       phoneNumber: string | null;
       websiteUrl: string | null;
+      notificationOffsetMinutes: number;
     };
 
     try {
@@ -163,6 +165,7 @@ export const processVoice = async (req: Request, res: Response): Promise<void> =
         scheduledTime,
         phoneNumber: parsed.phoneNumber || null,
         websiteUrl: parsed.websiteUrl || null,
+        notificationOffsetMinutes: parsed.notificationOffsetMinutes || 0,
       },
     });
 

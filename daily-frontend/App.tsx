@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   SafeAreaView,
   StyleSheet,
@@ -17,6 +17,10 @@ import ProfileScreen from "./src/screens/ProfileScreen";
 import GroceryModal from "./src/screens/GroceryModal";
 import DateTimePickerCustom from "./src/components/DateTimePicker";
 import { createReminder } from "./src/api/reminderApi";
+import {
+  configureForegroundHandler,
+  scheduleReminderNotifications,
+} from "./src/services/notificationService";
 
 type Screen = "onboarding" | "dashboard" | "profile";
 
@@ -31,6 +35,11 @@ export default function App() {
   const [newPhone, setNewPhone] = useState("");
   const [newUrl, setNewUrl] = useState("");
 
+  // Configure notification foreground handler on app startup
+  useEffect(() => {
+    configureForegroundHandler();
+  }, []);
+
   const handleAddReminder = async () => {
     if (!newTitle.trim()) {
       Alert.alert("שגיאה", "נא למלא כותרת");
@@ -38,12 +47,16 @@ export default function App() {
     }
 
     try {
-      await createReminder({
+      const reminder = await createReminder({
         title: newTitle.trim(),
         scheduledTime: newDate.toISOString(),
         phoneNumber: newPhone.trim() || undefined,
         websiteUrl: newUrl.trim() || undefined,
       });
+
+      // Schedule local notification for the new reminder
+      await scheduleReminderNotifications(reminder);
+
       Alert.alert("✓", "תזכורת נוצרה בהצלחה");
       setAddModalVisible(false);
       setNewTitle("");

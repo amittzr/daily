@@ -14,6 +14,10 @@ import ReminderCard from "../components/ReminderCard";
 import VoiceControls from "../components/VoiceControls";
 import { fetchReminders } from "../api/reminderApi";
 import { Reminder } from "../types";
+import {
+  requestPermissions,
+  syncAllRemindersNotifications,
+} from "../services/notificationService";
 
 interface DashboardScreenProps {
   onProfilePress: () => void;
@@ -34,6 +38,8 @@ export default function DashboardScreen({
       setError(null);
       const data = await fetchReminders();
       setReminders(data);
+      // Sync local notifications with fetched reminders
+      await syncAllRemindersNotifications(data);
     } catch (err) {
       setError("לא ניתן להתחבר לשרת");
       console.error("[Dashboard] Load error:", err);
@@ -44,6 +50,8 @@ export default function DashboardScreen({
   }, []);
 
   useEffect(() => {
+    // Request notification permissions on first load
+    requestPermissions();
     loadReminders();
   }, [loadReminders]);
 
