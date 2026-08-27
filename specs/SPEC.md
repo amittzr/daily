@@ -95,6 +95,8 @@
 | GET | `/health` | Health check |
 | GET | `/api/reminders?userId=<uuid>` | Fetch all reminders (sorted by scheduledTime ASC) |
 | POST | `/api/reminders` | Create reminder manually |
+| PATCH | `/api/reminders/:id` | Update reminder fields or status |
+| DELETE | `/api/reminders/:id` | Delete reminder by UUID |
 | POST | `/api/voice/process` | Upload audio → transcribe → parse → save |
 
 ### POST /api/reminders Body

@@ -64,6 +64,18 @@ export default function DashboardScreen({
     Alert.alert("סימולציה", "סריקת קבלה / מסמך");
   };
 
+  // Handle reminder deletion from child component
+  const handleReminderDeleted = (id: string) => {
+    setReminders((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  // Handle reminder update from child component
+  const handleReminderUpdated = (updated: Reminder) => {
+    setReminders((prev) =>
+      prev.map((r) => (r.id === updated.id ? updated : r))
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Header onProfilePress={onProfilePress} />
@@ -123,6 +135,8 @@ export default function DashboardScreen({
                 key={reminder.id}
                 reminder={reminder}
                 isLast={index === reminders.length - 1}
+                onDeleted={handleReminderDeleted}
+                onUpdated={handleReminderUpdated}
               />
             ))}
         </View>

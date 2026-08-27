@@ -9,7 +9,11 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   ScrollView,
+  KeyboardAvoidingView,
+  Keyboard,
+  Platform,
 } from "react-native";
 import OnboardingScreen from "./src/screens/OnboardingScreen";
 import DashboardScreen from "./src/screens/DashboardScreen";
@@ -109,13 +113,20 @@ export default function App() {
         animationType="slide"
         onRequestClose={() => setAddModalVisible(false)}
       >
-        <View style={styles.modalBackdrop}>
-          <TouchableOpacity
-            style={styles.modalBackdropPress}
-            onPress={() => setAddModalVisible(false)}
-          />
-          <View style={styles.modalSheet}>
-            <ScrollView showsVerticalScrollIndicator={false}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <KeyboardAvoidingView
+            style={styles.modalBackdrop}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+          >
+            <TouchableOpacity
+              style={styles.modalBackdropPress}
+              onPress={() => setAddModalVisible(false)}
+            />
+            <View style={styles.modalSheet}>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
               <Text style={styles.modalTitle}>תזכורת חדשה</Text>
 
               {/* Title Input */}
@@ -165,7 +176,8 @@ export default function App() {
               </TouchableOpacity>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
       </Modal>
     </SafeAreaView>
   );
