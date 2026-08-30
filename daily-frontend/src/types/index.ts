@@ -8,6 +8,9 @@ export interface Reminder {
   websiteUrl?: string;
   status: string;
   isProactive?: boolean;
+  isRecurring?: boolean;
+  recurrenceIntervalDays?: number | null;
+  lastCompletedAt?: string | null;
   createdAt?: string;
 }
 

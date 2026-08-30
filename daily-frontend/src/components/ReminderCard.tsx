@@ -12,7 +12,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Reminder } from "../types";
 import { updateReminder, deleteReminder } from "../api/reminderApi";
-import { cancelReminderNotification } from "../services/notificationService";
+import {
+  cancelReminderNotification,
+  scheduleReminderNotifications,
+} from "../services/notificationService";
 
 interface ReminderCardProps {
   reminder: Reminder;
@@ -55,6 +58,20 @@ function isOverdue(reminder: Reminder): boolean {
   );
 }
 
+/**
+ * Get a human-readable Hebrew label for the recurrence interval.
+ */
+function getRecurrenceLabel(days: number | null | undefined): string {
+  switch (days) {
+    case 1: return "כל יום";
+    case 3: return "כל 3 ימים";
+    case 7: return "כל שבוע";
+    case 14: return "כל שבועיים";
+    case 30: return "כל חודש";
+    default: return days ? `כל ${days} ימים` : "מחזורי";
+  }
+}
+
 const SWIPE_THRESHOLD = -80;
 
 export default function ReminderCard({
@@ -66,10 +83,18 @@ export default function ReminderCard({
 }: ReminderCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [status, setStatus] = useState(reminder.status);
+  const [lastCompletedAt, setLastCompletedAt] = useState(reminder.lastCompletedAt);
   const translateX = useRef(new Animated.Value(0)).current;
 
-  const isCompleted = status === "completed";
-  const overdue = isOverdue({ ...reminder, status });
+  // For recurring reminders: "done for this cycle" means it was completed today
+  // (lastCompletedAt is today) and the next occurrence is in the future.
+  const isDoneThisCycle =
+    reminder.isRecurring &&
+    !!lastCompletedAt &&
+    new Date(lastCompletedAt).toDateString() === new Date().toDateString();
+
+  const isCompleted = reminder.isRecurring ? isDoneThisCycle : status === "completed";
+  const overdue = isOverdue({ ...reminder, status }) && !isDoneThisCycle;
 
   // PanResponder for swipe-to-delete
   const panResponder = useRef(
@@ -103,20 +128,41 @@ export default function ReminderCard({
 
   // Toggle status between pending and completed
   const handleToggleStatus = async () => {
-    const newStatus = isCompleted ? "pending" : "completed";
-    setStatus(newStatus);
+    // Determine the new status. For recurring, we complete this cycle or undo it.
+    const markComplete = !isCompleted;
+    const newStatus = markComplete ? "completed" : "pending";
+
+    // Optimistic UI update
+    if (reminder.isRecurring) {
+      setLastCompletedAt(markComplete ? new Date().toISOString() : null);
+    } else {
+      setStatus(newStatus);
+    }
 
     try {
       const updated = await updateReminder(reminder.id, { status: newStatus });
-      onUpdated(updated);
 
-      // Cancel notifications if completed
-      if (newStatus === "completed") {
+      // For recurring reminders, the backend advances scheduledTime to the next
+      // cycle and keeps status pending. Reschedule notifications accordingly.
+      if (reminder.isRecurring) {
+        setStatus("pending");
+        setLastCompletedAt(updated.lastCompletedAt);
+        await cancelReminderNotification(reminder.id);
+        if (updated.status === "pending") {
+          await scheduleReminderNotifications(updated);
+        }
+      } else if (newStatus === "completed") {
         await cancelReminderNotification(reminder.id);
       }
+
+      onUpdated(updated);
     } catch {
       // Revert on failure
-      setStatus(isCompleted ? "completed" : "pending");
+      if (reminder.isRecurring) {
+        setLastCompletedAt(reminder.lastCompletedAt);
+      } else {
+        setStatus(isCompleted ? "completed" : "pending");
+      }
       Alert.alert("שגיאה", "לא ניתן לעדכן סטטוס");
     }
   };
@@ -190,13 +236,22 @@ export default function ReminderCard({
                 </Text>
               </View>
 
-              {/* Overdue badge */}
-              {overdue && (
-                <View style={styles.overdueBadge}>
-                  <Ionicons name="alert-circle" size={10} color="#DC2626" />
-                  <Text style={styles.overdueText}>עבר הזמן</Text>
-                </View>
-              )}
+              {/* Badges row */}
+              <View style={styles.badgesRow}>
+                {reminder.isRecurring && (
+                  <View style={styles.recurringBadge}>
+                    <Text style={styles.recurringText}>
+                      🔄 {getRecurrenceLabel(reminder.recurrenceIntervalDays)}
+                    </Text>
+                  </View>
+                )}
+                {overdue && (
+                  <View style={styles.overdueBadge}>
+                    <Ionicons name="alert-circle" size={10} color="#DC2626" />
+                    <Text style={styles.overdueText}>עבר הזמן</Text>
+                  </View>
+                )}
+              </View>
             </View>
 
             {/* Expand indicator */}
@@ -316,12 +371,16 @@ const styles = StyleSheet.create({
     textDecorationLine: "line-through",
     color: "#9CA3AF",
   },
+  badgesRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 6,
+    marginTop: 4,
+  },
   overdueBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    alignSelf: "flex-end",
-    marginTop: 4,
     backgroundColor: "#FEF2F2",
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -331,6 +390,17 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
     color: "#DC2626",
+  },
+  recurringBadge: {
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  recurringText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#2563EB",
   },
   expanded: {
     marginTop: 10,

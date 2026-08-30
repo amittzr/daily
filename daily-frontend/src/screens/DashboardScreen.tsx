@@ -13,7 +13,9 @@ import ProactiveCard from "../components/ProactiveCard";
 import ReminderCard from "../components/ReminderCard";
 import VoiceControls from "../components/VoiceControls";
 import SuggestionModal, { ConflictData } from "../components/SuggestionModal";
+import InsuranceModal from "../components/InsuranceModal";
 import { fetchReminders, updateReminder } from "../api/reminderApi";
+import { getInsuranceDocuments, InsuranceDocument } from "../api/insuranceApi";
 import { Reminder } from "../types";
 import {
   requestPermissions,
@@ -38,6 +40,8 @@ export default function DashboardScreen({
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflictData, setConflictData] = useState<ConflictData | null>(null);
+  const [insuranceDoc, setInsuranceDoc] = useState<InsuranceDocument | null>(null);
+  const [insuranceModalVisible, setInsuranceModalVisible] = useState(false);
 
   const loadReminders = useCallback(async () => {
     try {
@@ -46,6 +50,25 @@ export default function DashboardScreen({
       setReminders(data);
       // Sync local notifications with fetched reminders
       await syncAllRemindersNotifications(data);
+
+      // Check for insurance documents (for proactive card)
+      try {
+        const docs = await getInsuranceDocuments();
+        if (docs.length > 0) {
+          const latest = docs[0];
+          // Show proactive card if expiration is within 60 days
+          if (latest.expirationDate) {
+            const daysUntil = Math.ceil(
+              (new Date(latest.expirationDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+            );
+            if (daysUntil > 0 && daysUntil <= 60) {
+              setInsuranceDoc(latest);
+            }
+          }
+        }
+      } catch {
+        // Non-critical — insurance check failure doesn't block dashboard
+      }
     } catch (err) {
       setError("לא ניתן להתחבר לשרת");
       console.error("[Dashboard] Load error:", err);
@@ -123,15 +146,27 @@ export default function DashboardScreen({
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Proactive Notification */}
-        <ProactiveCard
-          title="ביטוח הרכב שלך מסתיים ב-1 בספטמבר"
-          description="נמצאו חלופות זהות שיחסכו לך כ-450 ₪ בשנה."
-          actionLabel="לחץ לצפייה בהשוואה והצעות חיסכון"
-          onPress={() =>
-            Alert.alert("ביטוח רכב", "השוואת מחירים תוצג כאן בגרסה המלאה")
-          }
-        />
+        {/* Proactive Insurance Card — shown when insurance doc exists and expires soon */}
+        {insuranceDoc && insuranceDoc.expirationDate && (
+          <ProactiveCard
+            title={`ביטוח הרכב שלך (${insuranceDoc.carModel || "רכב"}) מסתיים בקרוב!`}
+            description={`חברת ${insuranceDoc.providerName || "ביטוח"} | עלות שנתית: ₪${insuranceDoc.annualCost?.toLocaleString() || "?"}`}
+            actionLabel="לחץ לצפייה בהשוואה והצעות חיסכון"
+            onPress={() => setInsuranceModalVisible(true)}
+          />
+        )}
+
+        {/* Static proactive card if no insurance uploaded */}
+        {!insuranceDoc && (
+          <ProactiveCard
+            title="ביטוח הרכב שלך מסתיים ב-1 בספטמבר"
+            description="נמצאו חלופות זהות שיחסכו לך כ-450 ₪ בשנה."
+            actionLabel="לחץ לצפייה בהשוואה והצעות חיסכון"
+            onPress={() =>
+              Alert.alert("ביטוח רכב", "העלה מסמך ביטוח בפרופיל כדי לקבל השוואה מותאמת")
+            }
+          />
+        )}
 
         {/* Reminders Section */}
         <View style={styles.remindersCard}>
@@ -193,6 +228,13 @@ export default function DashboardScreen({
         conflict={conflictData}
         onAcceptSuggestion={handleAcceptSuggestion}
         onKeepOriginal={handleKeepOriginal}
+      />
+
+      {/* Insurance Comparison Modal */}
+      <InsuranceModal
+        visible={insuranceModalVisible}
+        documentId={insuranceDoc?.id || null}
+        onClose={() => setInsuranceModalVisible(false)}
       />
     </View>
   );

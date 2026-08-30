@@ -72,7 +72,7 @@ export const getReminders = async (req: Request, res: Response): Promise<void> =
  */
 export const createReminder = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { userId, title, description, scheduledTime, phoneNumber, websiteUrl, isProactive } =
+    const { userId, title, description, scheduledTime, phoneNumber, websiteUrl, isProactive, isRecurring, recurrenceIntervalDays } =
       req.body;
 
     // Validate required fields
@@ -103,6 +103,8 @@ export const createReminder = async (req: Request, res: Response): Promise<void>
         phoneNumber: phoneNumber || null,
         websiteUrl: websiteUrl || null,
         isProactive: isProactive ?? false,
+        isRecurring: isRecurring ?? false,
+        recurrenceIntervalDays: isRecurring ? (recurrenceIntervalDays || 1) : null,
       },
     });
 
@@ -155,14 +157,15 @@ export const createReminder = async (req: Request, res: Response): Promise<void>
 export const updateReminder = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { title, scheduledTime, phoneNumber, websiteUrl, status } = req.body;
+    const { title, scheduledTime, phoneNumber, websiteUrl, status, isRecurring, recurrenceIntervalDays } = req.body;
 
     // Build update data object with only provided fields
     const data: Record<string, unknown> = {};
     if (title !== undefined) data.title = title;
     if (phoneNumber !== undefined) data.phoneNumber = phoneNumber || null;
     if (websiteUrl !== undefined) data.websiteUrl = websiteUrl || null;
-    if (status !== undefined) data.status = status;
+    if (isRecurring !== undefined) data.isRecurring = isRecurring;
+    if (recurrenceIntervalDays !== undefined) data.recurrenceIntervalDays = recurrenceIntervalDays;
 
     if (scheduledTime !== undefined) {
       const parsedTime = new Date(scheduledTime);
@@ -174,6 +177,39 @@ export const updateReminder = async (req: Request, res: Response): Promise<void>
         return;
       }
       data.scheduledTime = parsedTime;
+    }
+
+    // RECURRENCE AUTO-ADVANCE:
+    // If marking a recurring reminder as completed, advance to next occurrence
+    // and record completion time so it shows as "done for this cycle".
+    if (status === "completed") {
+      const existing = await prisma.reminder.findUnique({ where: { id } });
+      if (existing?.isRecurring && existing.recurrenceIntervalDays) {
+        // Advance from the LATER of scheduledTime or now, so it always lands
+        // on a future occurrence (never re-triggers same-day repeatedly).
+        const baseTime = Math.max(existing.scheduledTime.getTime(), Date.now());
+        const nextTime = new Date(
+          baseTime + existing.recurrenceIntervalDays * 24 * 60 * 60 * 1000
+        );
+        // Preserve the original time-of-day from scheduledTime
+        nextTime.setHours(
+          existing.scheduledTime.getHours(),
+          existing.scheduledTime.getMinutes(),
+          0,
+          0
+        );
+        data.scheduledTime = nextTime;
+        data.status = "pending"; // Reset for next cycle
+        data.lastCompletedAt = new Date();
+      } else {
+        data.status = "completed";
+      }
+    } else if (status === "pending") {
+      // Un-completing: clear lastCompletedAt
+      data.status = "pending";
+      data.lastCompletedAt = null;
+    } else if (status !== undefined) {
+      data.status = status;
     }
 
     if (Object.keys(data).length === 0) {

@@ -35,6 +35,8 @@ export async function createReminder(params: {
   scheduledTime: string;
   phoneNumber?: string;
   websiteUrl?: string;
+  isRecurring?: boolean;
+  recurrenceIntervalDays?: number | null;
 }): Promise<{
   reminder: Reminder;
   conflict: {
@@ -54,6 +56,8 @@ export async function createReminder(params: {
         scheduledTime: params.scheduledTime,
         phoneNumber: params.phoneNumber || null,
         websiteUrl: params.websiteUrl || null,
+        isRecurring: params.isRecurring || false,
+        recurrenceIntervalDays: params.isRecurring ? (params.recurrenceIntervalDays || 1) : null,
       }),
     });
 
@@ -86,7 +90,7 @@ export async function createReminder(params: {
  */
 export async function updateReminder(
   id: string,
-  updates: Partial<Pick<Reminder, "title" | "scheduledTime" | "phoneNumber" | "websiteUrl" | "status">>
+  updates: Partial<Pick<Reminder, "title" | "scheduledTime" | "phoneNumber" | "websiteUrl" | "status" | "isRecurring" | "recurrenceIntervalDays">>
 ): Promise<Reminder & { conflict?: { hasConflictOrOverload: boolean; suggestedTime: string; conflictWarning: string; recommendationReason: string } | null }> {
   try {
     const response = await fetch(`${API_REMINDERS_URL}/${id}`, {

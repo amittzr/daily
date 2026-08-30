@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Keyboard,
   Platform,
+  Switch,
 } from "react-native";
 import OnboardingScreen from "./src/screens/OnboardingScreen";
 import DashboardScreen from "./src/screens/DashboardScreen";
@@ -45,6 +46,9 @@ export default function App() {
   const [formDate, setFormDate] = useState(new Date());
   const [formPhone, setFormPhone] = useState("");
   const [formUrl, setFormUrl] = useState("");
+  const [formRecurring, setFormRecurring] = useState(false);
+  const [formInterval, setFormInterval] = useState(1); // days
+  const [formCustomInterval, setFormCustomInterval] = useState(false);
 
   // Conflict suggestion state
   const [conflictData, setConflictData] = useState<ConflictData | null>(null);
@@ -63,6 +67,9 @@ export default function App() {
     setFormDate(new Date());
     setFormPhone("");
     setFormUrl("");
+    setFormRecurring(false);
+    setFormInterval(1);
+    setFormCustomInterval(false);
   };
 
   // Open add modal
@@ -78,6 +85,11 @@ export default function App() {
     setFormDate(new Date(reminder.scheduledTime));
     setFormPhone(reminder.phoneNumber || "");
     setFormUrl(reminder.websiteUrl || "");
+    setFormRecurring(reminder.isRecurring || false);
+    const interval = reminder.recurrenceIntervalDays || 1;
+    setFormInterval(interval);
+    // If the interval isn't a preset, show it as custom
+    setFormCustomInterval(![1, 3, 7, 14, 30].includes(interval));
     setEditModalVisible(true);
   };
 
@@ -94,6 +106,8 @@ export default function App() {
         scheduledTime: formDate.toISOString(),
         phoneNumber: formPhone.trim() || undefined,
         websiteUrl: formUrl.trim() || undefined,
+        isRecurring: formRecurring,
+        recurrenceIntervalDays: formRecurring ? formInterval : undefined,
       });
 
       // Schedule local notification
@@ -136,6 +150,8 @@ export default function App() {
         scheduledTime: formDate.toISOString(),
         phoneNumber: formPhone.trim() || undefined,
         websiteUrl: formUrl.trim() || undefined,
+        isRecurring: formRecurring,
+        recurrenceIntervalDays: formRecurring ? formInterval : null,
       });
 
       // Re-schedule notifications
@@ -251,6 +267,75 @@ export default function App() {
         keyboardType="url"
       />
 
+      {/* Recurring Toggle */}
+      <View style={styles.recurringRow}>
+        <Switch
+          value={formRecurring}
+          onValueChange={setFormRecurring}
+          trackColor={{ false: "#E5E7EB", true: "#93C5FD" }}
+          thumbColor={formRecurring ? "#2563EB" : "#F3F4F6"}
+        />
+        <Text style={styles.recurringLabel}>תזכורת מחזורית 🔄</Text>
+      </View>
+
+      {/* Frequency Picker (shown when recurring is on) */}
+      {formRecurring && (
+        <>
+          <View style={styles.freqPicker}>
+            {[
+              { label: "כל יום", days: 1 },
+              { label: "כל 3 ימים", days: 3 },
+              { label: "כל שבוע", days: 7 },
+              { label: "כל שבועיים", days: 14 },
+              { label: "כל חודש", days: 30 },
+            ].map((opt) => (
+              <TouchableOpacity
+                key={opt.days}
+                style={[styles.freqOption, formInterval === opt.days && styles.freqOptionActive]}
+                onPress={() => {
+                  setFormInterval(opt.days);
+                  setFormCustomInterval(false);
+                }}
+              >
+                <Text
+                  style={[styles.freqText, formInterval === opt.days && styles.freqTextActive]}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            {/* Custom option */}
+            <TouchableOpacity
+              style={[styles.freqOption, formCustomInterval && styles.freqOptionActive]}
+              onPress={() => setFormCustomInterval(true)}
+            >
+              <Text style={[styles.freqText, formCustomInterval && styles.freqTextActive]}>
+                מותאם אישית
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Custom days input */}
+          {formCustomInterval && (
+            <View style={styles.customIntervalRow}>
+              <Text style={styles.customIntervalLabel}>ימים</Text>
+              <TextInput
+                style={styles.customIntervalInput}
+                value={formInterval.toString()}
+                onChangeText={(t) => {
+                  const n = parseInt(t.replace(/[^0-9]/g, "")) || 1;
+                  setFormInterval(Math.max(1, Math.min(365, n)));
+                }}
+                keyboardType="number-pad"
+                textAlign="center"
+                maxLength={3}
+              />
+              <Text style={styles.customIntervalLabel}>כל</Text>
+            </View>
+          )}
+        </>
+      )}
+
       <TouchableOpacity
         style={styles.submitBtn}
         onPress={isEdit ? handleEditReminder : handleAddReminder}
@@ -361,5 +446,68 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: "#FFFFFF",
+  },
+  recurringRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 10,
+    marginTop: 16,
+  },
+  recurringLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#374151",
+  },
+  freqPicker: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+    gap: 8,
+    marginTop: 12,
+  },
+  freqOption: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#F9FAFB",
+  },
+  freqOptionActive: {
+    backgroundColor: "#EFF6FF",
+    borderColor: "#2563EB",
+  },
+  freqText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+  freqTextActive: {
+    color: "#2563EB",
+    fontWeight: "700",
+  },
+  customIntervalRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 10,
+    marginTop: 12,
+  },
+  customIntervalLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+  },
+  customIntervalInput: {
+    borderWidth: 1,
+    borderColor: "#2563EB",
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1F2937",
+    minWidth: 60,
   },
 });

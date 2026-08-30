@@ -18,7 +18,8 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  reminders Reminder[]
+  reminders  Reminder[]
+  documents  Document[]
 
   @@map("users")
 }
@@ -34,6 +35,9 @@ model Reminder {
   status                  String   @default("pending")
   isProactive             Boolean  @default(false)
   notificationOffsetMinutes Int?   @default(0)
+  isRecurring             Boolean  @default(false)
+  recurrenceIntervalDays  Int?     @default(1)
+  lastCompletedAt         DateTime?
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
@@ -42,4 +46,24 @@ model Reminder {
   @@index([userId])
   @@index([scheduledTime])
   @@map("reminders")
+}
+
+model Document {
+  id             String    @id @default(uuid())
+  userId         String
+  docType        String    // "car_insurance", "medical", etc.
+  providerName   String?   // e.g. "הפניקס", "הראל"
+  fileUrl        String?
+  carNumber      String?
+  carModel       String?
+  driverAge      Int?
+  noClaimsYears  Int?      @default(3)
+  annualCost     Float?
+  expirationDate DateTime?
+  createdAt      DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("documents")
 }

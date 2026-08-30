@@ -77,7 +77,13 @@ Task Instructions:
 4. Extract 'websiteUrl' or null.
 5. Extract 'notificationOffsetMinutes' if user mentions advance timing, else 0.
 
-6. CONFLICT & OVERLOAD DETECTION:
+6. RECURRENCE DETECTION:
+   - Detect recurring phrases: "כל יום" (1 day), "כל 3 ימים"/"כל שלושה ימים" (3 days), "כל שבוע"/"מדי שבוע" (7 days), "כל שבועיים" (14 days), "כל חודש" (30 days).
+   - If recurring: set 'isRecurring' to true and 'recurrenceIntervalDays' to the number of days between occurrences.
+   - Calculate 'scheduledTime' for the FIRST upcoming occurrence.
+   - If not recurring: set isRecurring=false, recurrenceIntervalDays=null.
+
+7. CONFLICT & OVERLOAD DETECTION:
    - Check if the target day already has >= 3 events OR has overlapping/adjacent times (within 1 hour).
    - Respect Israeli business days: Sun-Thu are full workdays. Friday is short (until ~13:00). Saturday (Shabbat) is closed for clinics, offices, barbers.
    - If overloaded or conflicting:
@@ -88,7 +94,7 @@ Task Instructions:
    - If NO conflict: set hasConflictOrOverload=false, suggestedTime=null, conflictWarning=null, recommendationReason=null.
 
 CRITICAL: Return ONLY a valid JSON object matching this exact schema, no markdown or conversation:
-{"title":"string","scheduledTime":"string","phoneNumber":"string or null","websiteUrl":"string or null","notificationOffsetMinutes":0,"hasConflictOrOverload":false,"suggestedTime":"string or null","conflictWarning":"string or null","recommendationReason":"string or null"}`;
+{"title":"string","scheduledTime":"string","phoneNumber":"string or null","websiteUrl":"string or null","notificationOffsetMinutes":0,"isRecurring":false,"recurrenceIntervalDays":null,"hasConflictOrOverload":false,"suggestedTime":"string or null","conflictWarning":"string or null","recommendationReason":"string or null"}`;
 }
 
 /**
@@ -173,6 +179,8 @@ export const processVoice = async (req: Request, res: Response): Promise<void> =
       phoneNumber: string | null;
       websiteUrl: string | null;
       notificationOffsetMinutes: number;
+      isRecurring: boolean;
+      recurrenceIntervalDays: number | null;
       hasConflictOrOverload: boolean;
       suggestedTime: string | null;
       conflictWarning: string | null;
@@ -219,6 +227,8 @@ export const processVoice = async (req: Request, res: Response): Promise<void> =
         phoneNumber: parsed.phoneNumber || null,
         websiteUrl: parsed.websiteUrl || null,
         notificationOffsetMinutes: parsed.notificationOffsetMinutes || 0,
+        isRecurring: parsed.isRecurring || false,
+        recurrenceIntervalDays: parsed.isRecurring ? (parsed.recurrenceIntervalDays || 1) : null,
       },
     });
 

@@ -411,6 +411,11 @@
         <div class="version">qwen/qwen3.8-27b (JSON mode)</div>
       </div>
       <div class="tech-card">
+        <div class="label">AI — Vision/OCR</div>
+        <div class="value">Google Gemini</div>
+        <div class="version">gemini-3.6-flash (free, Hebrew OCR)</div>
+      </div>
+      <div class="tech-card">
         <div class="label">Notifications</div>
         <div class="value">expo-notifications</div>
         <div class="version">Local scheduled (Expo Go compatible)</div>
@@ -470,7 +475,7 @@
           <tr><td>firstName</td><td>String</td><td></td></tr>
           <tr><td>createdAt</td><td>DateTime</td><td></td></tr>
           <tr><td>updatedAt</td><td>DateTime</td><td></td></tr>
-          <tr><td rowspan="11"><strong>reminders</strong></td><td>id</td><td>UUID (PK)</td><td>Auto-generated</td></tr>
+          <tr><td rowspan="14"><strong>reminders</strong></td><td>id</td><td>UUID (PK)</td><td>Auto-generated</td></tr>
           <tr><td>userId</td><td>UUID (FK)</td><td>→ users.id</td></tr>
           <tr><td>title</td><td>String</td><td>Hebrew text</td></tr>
           <tr><td>description</td><td>String?</td><td>Optional</td></tr>
@@ -480,6 +485,9 @@
           <tr><td>status</td><td>String</td><td>Default: "pending"</td></tr>
           <tr><td>isProactive</td><td>Boolean</td><td>Default: false</td></tr>
           <tr><td>notificationOffsetMinutes</td><td>Int?</td><td>Default: 0</td></tr>
+          <tr><td>isRecurring</td><td>Boolean</td><td>Default: false</td></tr>
+          <tr><td>recurrenceIntervalDays</td><td>Int?</td><td>Days between occurrences</td></tr>
+          <tr><td>lastCompletedAt</td><td>DateTime?</td><td>Recurring cycle tracking</td></tr>
           <tr><td>createdAt / updatedAt</td><td>DateTime</td><td></td></tr>
         </tbody>
       </table>
@@ -524,6 +532,31 @@
             <td><span class="method-badge method-post">POST</span></td>
             <td><code>/api/voice/process</code></td>
             <td>Upload audio → transcribe → parse → save</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-post">POST</span></td>
+            <td><code>/api/insurance/upload</code></td>
+            <td>Upload insurance doc → Gemini Vision OCR → save</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-patch">PATCH</span></td>
+            <td><code>/api/insurance/documents/:id</code></td>
+            <td>Update parsed document fields</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td><code>/api/insurance/documents/:id/file</code></td>
+            <td>Serve uploaded document image</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td><code>/api/insurance/compare/:documentId</code></td>
+            <td>Insurance comparison (cost, savings, Bestie link)</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td><code>/api/insurance/documents</code></td>
+            <td>List all insurance documents</td>
           </tr>
         </tbody>
       </table>
@@ -574,6 +607,21 @@
         <h3>Grocery List</h3>
         <p>Smart frequency-based grocery suggestions with savings comparison. Receipt scanning placeholder.</p>
       </div>
+      <div class="feature-card">
+        <span class="feature-tag tag-active">Active</span>
+        <h3>Flexible Recurring Reminders</h3>
+        <p>Repeat daily, every X days, weekly, bi-weekly, monthly, or custom (1-365). Voice + manual toggle with frequency picker. 🔄 badge on cards. Completing advances to next cycle and prevents same-day re-completion.</p>
+      </div>
+      <div class="feature-card ai">
+        <span class="feature-tag tag-ai">AI Vision</span>
+        <h3>Insurance Document Parsing</h3>
+        <p>Upload policy photo → Gemini 3.6 Flash extracts Hebrew fields (provider, car, cost, expiry) → save to DB → auto-create 30-day-before reminder → view/edit parsed details.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-tag tag-active">Active</span>
+        <h3>Insurance Comparison & Bestie</h3>
+        <p>ProactiveCard appears when policy expires within 60 days. Shows current cost vs. government rate, estimated savings, and 1-click link to Bestie.co.il with pre-filled car params.</p>
+      </div>
       <div class="feature-card shell">
         <span class="feature-tag tag-shell">UI Shell</span>
         <h3>Profile & Documents</h3>
@@ -622,6 +670,8 @@
         <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="file">ProactiveCard.tsx</span></div>
         <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="file">ReminderCard.tsx</span></div>
         <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="file">SuggestionModal.tsx</span></div>
+        <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="file">InsuranceModal.tsx</span></div>
+        <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="file">InsuranceDetailModal.tsx</span></div>
         <div class="tree-item"><span class="tree-branch">│   └──</span> <span class="file">VoiceControls.tsx</span></div>
         <div class="tree-item"><span class="tree-branch">├──</span> <span class="folder">src/screens/</span></div>
         <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="file">DashboardScreen.tsx</span></div>
@@ -641,9 +691,11 @@
         <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="folder">config/</span></div>
         <div class="tree-item"><span class="tree-branch">│   │   └──</span> <span class="file">db.ts</span> <span class="desc">Prisma client</span></div>
         <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="folder">controllers/</span></div>
+        <div class="tree-item"><span class="tree-branch">│   │   ├──</span> <span class="file">insurance.controller.ts</span></div>
         <div class="tree-item"><span class="tree-branch">│   │   ├──</span> <span class="file">reminder.controller.ts</span></div>
         <div class="tree-item"><span class="tree-branch">│   │   └──</span> <span class="file">voice.controller.ts</span></div>
         <div class="tree-item"><span class="tree-branch">│   └──</span> <span class="folder">routes/</span></div>
+        <div class="tree-item"><span class="tree-branch">│       ├──</span> <span class="file">insurance.routes.ts</span></div>
         <div class="tree-item"><span class="tree-branch">│       ├──</span> <span class="file">reminder.routes.ts</span></div>
         <div class="tree-item"><span class="tree-branch">│       └──</span> <span class="file">voice.routes.ts</span></div>
         <div class="tree-item"><span class="tree-branch">├──</span> <span class="folder">prisma/</span></div>
@@ -667,6 +719,9 @@
           <tr><td>Backend (Express)</td><td>3000</td><td>Hot-reload via tsx watch</td></tr>
           <tr><td>PostgreSQL</td><td>5433</td><td>Docker, mapped from 5432</td></tr>
           <tr><td>Expo Dev Server</td><td>8081</td><td>Web + QR code for Expo Go</td></tr>
+          <tr><td>Groq API</td><td>—</td><td>Speech-to-text + LLM intent parsing</td></tr>
+          <tr><td>Google Gemini API</td><td>—</td><td>Document vision OCR (free tier)</td></tr>
+          <tr><td>Bestie.co.il</td><td>—</td><td>Insurance comparison deep link</td></tr>
         </tbody>
       </table>
     </div>

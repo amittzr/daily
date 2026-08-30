@@ -14,6 +14,7 @@
 | ORM | Prisma | 6.19 |
 | AI — Speech-to-Text | Groq Whisper | whisper-large-v3 |
 | AI — Intent Parsing | Groq LLM | qwen/qwen3.8-27b |
+| AI — Vision/OCR | Google Gemini | gemini-3.6-flash (free) |
 | Notifications | expo-notifications | Local scheduled |
 | Audio Recording | expo-av | ~15.0.0 |
 | Dev Runner | tsx (hot-reload) | 4.x |
@@ -83,8 +84,27 @@
 | status | String | Default: "pending" |
 | isProactive | Boolean | Default: false |
 | notificationOffsetMinutes | Int? | Default: 0 |
+| isRecurring | Boolean | Default: false |
+| recurrenceIntervalDays | Int? | Default: 1 (days between occurrences) |
+| lastCompletedAt | DateTime? | Tracks last completion for recurring cycle |
 | createdAt | DateTime | |
 | updatedAt | DateTime | |
+
+### Document
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID (PK) | Auto-generated |
+| userId | UUID (FK → User) | |
+| docType | String | "car_insurance", "medical", etc. |
+| providerName | String? | e.g. "הפניקס", "הראל" |
+| fileUrl | String? | Path to uploaded file |
+| carNumber | String? | License plate digits |
+| carModel | String? | e.g. "מאזדה 3" |
+| driverAge | Int? | |
+| noClaimsYears | Int? | Default: 3 |
+| annualCost | Float? | Annual premium in NIS |
+| expirationDate | DateTime? | Policy end date |
+| createdAt | DateTime | |
 
 ---
 
@@ -98,6 +118,11 @@
 | PATCH | `/api/reminders/:id` | Update reminder fields or status |
 | DELETE | `/api/reminders/:id` | Delete reminder by UUID |
 | POST | `/api/voice/process` | Upload audio → transcribe → parse → save |
+| POST | `/api/insurance/upload` | Upload insurance doc image → Gemini Vision parse → save |
+| PATCH | `/api/insurance/documents/:id` | Update parsed document fields |
+| GET | `/api/insurance/documents/:id/file` | Serve uploaded document image |
+| GET | `/api/insurance/compare/:documentId` | Get insurance comparison data |
+| GET | `/api/insurance/documents` | List all insurance documents |
 
 ### POST /api/reminders Body
 ```json
@@ -193,6 +218,42 @@
 - Smart grocery modal with frequency-based suggestions
 - Savings comparison placeholder
 
+### 9. Flexible Recurring Reminders
+- Reminders can repeat on a custom interval: daily, every 3 days, weekly, bi-weekly, monthly, or any custom number of days
+- **Voice:** LLM detects phrases like "כל יום", "כל 3 ימים", "כל שבוע", "כל שבועיים" → sets `isRecurring` + `recurrenceIntervalDays`
+- **Manual form:** "תזכורת מחזורית 🔄" toggle switch reveals a frequency picker (presets + "מותאם אישית" custom days input, 1-365)
+- ReminderCard shows a blue 🔄 badge with the interval label
+- **Completion cycle logic:**
+  - Marking a recurring reminder complete advances `scheduledTime` to the next occurrence (from max of scheduledTime or now, preserving time-of-day)
+  - Status resets to `pending`, `lastCompletedAt` records the completion timestamp
+  - The card shows "done for this cycle" (checked) until the next occurrence arrives — prevents infinite same-day re-completion
+  - Device notification is rescheduled for the next cycle automatically
+
+### 10. Insurance Document Parsing & Comparison
+**End-to-end flow:**
+1. User opens Profile → taps "גלריה" or "צלם" to upload insurance document photo
+2. Backend receives image via `POST /api/insurance/upload`
+3. **Google Gemini 3.6 Flash** (free vision model) analyzes the Hebrew document image
+4. AI extracts: providerName, carNumber, carModel, annualCost, expirationDate
+5. Data saved to `Document` table in PostgreSQL
+6. If expirationDate found → automatic proactive Reminder created 30 days before expiry (`isProactive: true`)
+7. Frontend shows **InsuranceDetailModal** with parsed fields, image preview, and edit capability
+8. User can correct any fields the AI missed → PATCH updates the document
+
+**Comparison & Proactive Alert:**
+- Dashboard checks if any insurance document expires within 60 days
+- If yes → shows red ProactiveCard: "ביטוח הרכב שלך מסתיים בקרוב!"
+- Tapping opens **InsuranceModal** with:
+  - Current policy cost vs. government compulsory baseline rate
+  - Estimated annual savings badge (₪)
+  - "השווה והשלם ב-Bestie" button → opens Bestie.co.il with pre-filled car params
+
+**Tech:**
+- Vision: Google Gemini 3.6 Flash (`@google/generative-ai` SDK, free tier)
+- Storage: PostgreSQL Document model (Prisma)
+- File serving: `GET /api/insurance/documents/:id/file`
+- Edit: `PATCH /api/insurance/documents/:id`
+
 ---
 
 ## Frontend Structure
@@ -208,6 +269,8 @@ daily-frontend/
 │   ├── components/
 │   │   ├── DateTimePicker.tsx        # Custom Hebrew calendar + time picker
 │   │   ├── Header.tsx                # App header with avatar
+│   │   ├── InsuranceDetailModal.tsx  # Parsed insurance fields view/edit
+│   │   ├── InsuranceModal.tsx        # Insurance comparison modal
 │   │   ├── ProactiveCard.tsx         # Urgent notification card
 │   │   ├── ReminderCard.tsx          # Single reminder display (expand/swipe/edit)
 │   │   ├── SuggestionModal.tsx       # AI conflict suggestion modal
@@ -237,10 +300,12 @@ daily-backend/
 │   ├── config/
 │   │   └── db.ts                    # Prisma client singleton
 │   ├── controllers/
+│   │   ├── insurance.controller.ts  # Gemini Vision parsing + comparison
 │   │   ├── reminder.controller.ts   # CRUD for reminders
 │   │   └── voice.controller.ts      # Audio → Whisper → LLM → DB
 │   └── routes/
-│       ├── reminder.routes.ts       # GET/POST /api/reminders
+│       ├── insurance.routes.ts      # /api/insurance endpoints
+│       ├── reminder.routes.ts       # GET/POST/PATCH/DELETE /api/reminders
 │       └── voice.routes.ts          # POST /api/voice/process (multer)
 ├── prisma/
 │   ├── schema.prisma                # DB models
@@ -269,6 +334,7 @@ daily-backend/
 | DATABASE_URL | PostgreSQL connection string |
 | PORT | Server port (default: 3000) |
 | GROQ_API_KEY | Groq API key for Whisper + LLM |
+| GEMINI_API_KEY | Google Gemini key for Vision OCR (free at aistudio.google.com) |
 
 ---
 
