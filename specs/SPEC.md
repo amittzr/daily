@@ -25,37 +25,36 @@
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────┐
-│  Mobile App (Expo Go / iOS / Android / Web)     │
-│  ┌───────────┐  ┌──────────┐  ┌─────────────┐  │
-│  │ Dashboard │  │ Voice    │  │ Notification│  │
-│  │ Screen    │  │ Controls │  │ Service     │  │
-│  └─────┬─────┘  └────┬─────┘  └──────┬──────┘  │
-│        │              │               │          │
-│        ▼              ▼               ▼          │
-│  ┌─────────────────────────────────────────┐    │
-│  │         API Layer (fetch)               │    │
-│  │  reminderApi.ts  │  voiceApi.ts         │    │
-│  └──────────────────┼──────────────────────┘    │
-└─────────────────────┼───────────────────────────┘
-                      │ HTTP
-┌─────────────────────┼───────────────────────────┐
-│  Backend (Express)  │  Port 3000                 │
-│  ┌──────────────────┼──────────────────────┐    │
-│  │  Routes: /api/reminders, /api/voice     │    │
-│  └──────────────────┼──────────────────────┘    │
-│        │              │                          │
-│        ▼              ▼                          │
-│  ┌───────────┐  ┌──────────────────────┐        │
-│  │ Reminder  │  │ Voice Controller     │        │
-│  │ Controller│  │ Whisper → LLM → DB   │        │
-│  └─────┬─────┘  └──────────┬───────────┘        │
-│        │                    │                    │
-│        ▼                    ▼                    │
-│  ┌──────────────────────────────────────┐       │
-│  │  Prisma ORM → PostgreSQL (Docker)    │       │
-│  └──────────────────────────────────────┘       │
-└──────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│  Mobile App (Expo Go / iOS / Android / Web)                 │
+│  ┌───────────┐ ┌──────────┐ ┌────────────┐ ┌─────────────┐  │
+│  │ Dashboard │ │  Voice   │ │  Profile   │ │ Notification│  │
+│  │  Screen   │ │ Controls │ │  Screen    │ │  Service    │  │
+│  └─────┬─────┘ └────┬─────┘ └─────┬──────┘ └──────┬──────┘  │
+│        │            │             │               │          │
+│        ▼            ▼             ▼               ▼          │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │  API Layer: reminderApi · voiceApi · insuranceApi     │  │
+│  └───────────────────────┬───────────────────────────────┘  │
+└──────────────────────────┼───────────────────────────────────┘
+                           │ HTTP (JSON / multipart)
+┌──────────────────────────┼───────────────────────────────────┐
+│  Backend (Express)        │  Port 3000                        │
+│  ┌────────────────────────┼────────────────────────────────┐ │
+│  │ /api/reminders · /api/voice · /api/insurance            │ │
+│  └────┬───────────────┬──────────────────┬─────────────────┘ │
+│       ▼               ▼                  ▼                    │
+│  ┌─────────┐  ┌───────────────┐  ┌──────────────────────┐    │
+│  │Reminder │  │ Voice Ctrl    │  │ Insurance Ctrl       │    │
+│  │Ctrl     │  │ Whisper→LLM   │  │ Gemini Vision + CMA  │    │
+│  └────┬────┘  └───────┬───────┘  └──────────┬───────────┘    │
+│       └───────────────┼──────────────────────┘               │
+│                       ▼                                       │
+│         ┌─────────────────────────────────┐                  │
+│         │  Prisma ORM → PostgreSQL 15      │                  │
+│         └─────────────────────────────────┘                  │
+└───────────────────────────────────────────────────────────────┘
+        External: Groq (Whisper+LLM) · Google Gemini · Bestie · CMA gov
 ```
 
 ---
@@ -121,7 +120,8 @@
 | POST | `/api/insurance/upload` | Upload insurance doc image → Gemini Vision parse → save |
 | PATCH | `/api/insurance/documents/:id` | Update parsed document fields |
 | GET | `/api/insurance/documents/:id/file` | Serve uploaded document image |
-| GET | `/api/insurance/compare/:documentId` | Get insurance comparison data |
+| GET | `/api/insurance/compare/:documentId` | Get comparison + top 5 cheapest carriers |
+| POST | `/api/insurance/compare-on-demand` | On-demand comparison (documentId or manual params) |
 | GET | `/api/insurance/documents` | List all insurance documents |
 
 ### POST /api/reminders Body
@@ -171,6 +171,7 @@
 - Appointment detection (Hebrew keywords: תור, רופא, וטרינר, ספר, פגישה, ישיבה) adds 5-hours-before notification
 - Foreground notifications display as alerts with sound
 - Full sync on every dashboard load
+- Recurring reminders auto-reschedule notifications to the next cycle on completion
 - Works in Expo Go (local scheduling, no push)
 
 ### 4. Reminder Display
@@ -206,19 +207,15 @@
 - Opens pre-filled modal with title, date/time, phone, URL
 - On save: PATCH API → re-schedules notifications → checks for conflict
 
-### 6. Onboarding
+### 8. Onboarding
 - Module selection screen (groceries, insurance, finance, appointments)
 - Checkbox-based selection with visual feedback
 
-### 7. Profile & Documents (UI Shell)
-- Document upload placeholders (insurance, medical)
-- User info display
-
-### 8. Grocery List (UI Shell)
+### 9. Grocery List (UI Shell)
 - Smart grocery modal with frequency-based suggestions
 - Savings comparison placeholder
 
-### 9. Flexible Recurring Reminders
+### 10. Flexible Recurring Reminders
 - Reminders can repeat on a custom interval: daily, every 3 days, weekly, bi-weekly, monthly, or any custom number of days
 - **Voice:** LLM detects phrases like "כל יום", "כל 3 ימים", "כל שבוע", "כל שבועיים" → sets `isRecurring` + `recurrenceIntervalDays`
 - **Manual form:** "תזכורת מחזורית 🔄" toggle switch reveals a frequency picker (presets + "מותאם אישית" custom days input, 1-365)
@@ -229,7 +226,7 @@
   - The card shows "done for this cycle" (checked) until the next occurrence arrives — prevents infinite same-day re-completion
   - Device notification is rescheduled for the next cycle automatically
 
-### 10. Insurance Document Parsing & Comparison
+### 11. Insurance Document Parsing & Comparison
 **End-to-end flow:**
 1. User opens Profile → taps "גלריה" or "צלם" to upload insurance document photo
 2. Backend receives image via `POST /api/insurance/upload`
@@ -243,16 +240,38 @@
 **Comparison & Proactive Alert:**
 - Dashboard checks if any insurance document expires within 60 days
 - If yes → shows red ProactiveCard: "ביטוח הרכב שלך מסתיים בקרוב!"
-- Tapping opens **InsuranceModal** with:
-  - Current policy cost vs. government compulsory baseline rate
-  - Estimated annual savings badge (₪)
-  - "השווה והשלם ב-Bestie" button → opens Bestie.co.il with pre-filled car params
+- Tapping opens **InsuranceModal**
+
+**On-Demand Comparison + Top 5 Cheapest Carriers:**
+- "🔍 השווה ביטוח רכב כעת" button on both Dashboard and Profile screens triggers a live comparison anytime
+- Backend `fetchGovernmentCompulsoryRates()` attempts the official CMA calculator API (`car.cma.gov.il/api/Calculator/Calculate`) with a 5s timeout, falling back to calculated estimates across 10 Israeli carriers if unavailable
+- Returns the **top 5 cheapest** carriers sorted ascending, each with logo URL, exact price, and company website link
+- **InsuranceModal** displays:
+  - Current annual payment benchmark
+  - Top 5 carriers list — each row has carrier logo, name, exact rate (₪), and is tappable to open the company's website
+  - Cheapest carrier highlighted with green "הכי זול בשוק" badge
+  - Estimated savings (currentCost − cheapestPrice)
+  - "השלם השוואת מקיף ב-Bestie" button → opens Bestie via `WebBrowser.openBrowserAsync()`
+
+**API response shape (compare / compare-on-demand):**
+```json
+{
+  "currentPolicy": { "providerName", "annualCost", "expirationDate", "carModel", "carNumber" },
+  "top5Rates": [{ "companyName", "price", "logoUrl", "companyUrl" }],
+  "cheapestPrice": 2264,
+  "estimatedSavings": 1136,
+  "bestieDeepLink": "https://www.bestie.co.il/?carNumber=..."
+}
+```
 
 **Tech:**
 - Vision: Google Gemini 3.6 Flash (`@google/generative-ai` SDK, free tier)
+- Rates: CMA government calculator API (with calculated fallback)
+- In-app browser: `expo-web-browser` (Expo Go compatible)
 - Storage: PostgreSQL Document model (Prisma)
 - File serving: `GET /api/insurance/documents/:id/file`
 - Edit: `PATCH /api/insurance/documents/:id`
+- On-demand: `POST /api/insurance/compare-on-demand`
 
 ---
 
@@ -264,7 +283,8 @@ daily-frontend/
 ├── app.json                         # Expo config (SDK 54, plugins)
 ├── src/
 │   ├── api/
-│   │   ├── reminderApi.ts           # GET/POST reminders
+│   │   ├── reminderApi.ts           # GET/POST/PATCH/DELETE reminders
+│   │   ├── insuranceApi.ts          # Upload/compare/on-demand/documents
 │   │   └── voiceApi.ts              # POST audio for voice processing
 │   ├── components/
 │   │   ├── DateTimePicker.tsx        # Custom Hebrew calendar + time picker
@@ -317,6 +337,26 @@ daily-backend/
 
 ---
 
+## Notification Scheduling Logic
+
+Local notifications are scheduled on-device via `expo-notifications` (works in Expo Go).
+
+**Tiered scheduling** (based on time until the reminder):
+
+| Time until reminder | Notifications |
+|---------------------|---------------|
+| > 7 days | 1 week before → 1 day before → 2 hours before → exact |
+| 2–7 days | 1 day before → 2 hours before → exact |
+| 5h – 2 days | 2 hours before → exact |
+| < 5 hours | exact only |
+| Appointments (תור, רופא...) | + extra 5 hours before |
+
+**Recurring reminders:** on completion, the notification is cancelled and re-scheduled for the next occurrence (`scheduledTime + recurrenceIntervalDays`).
+
+**Sync:** on every dashboard load, all scheduled notifications are cleared and re-created from the current pending reminders to stay consistent with backend data.
+
+---
+
 ## Infrastructure
 
 | Service | Port | Notes |
@@ -324,6 +364,14 @@ daily-backend/
 | Backend (Express) | 3000 | Hot-reload via tsx watch |
 | PostgreSQL | 5433 | Docker container, mapped from 5432 |
 | Expo Dev Server | 8081 | Web + QR for Expo Go |
+| Groq API | — | Speech-to-text (Whisper) + LLM intent parsing |
+| Google Gemini API | — | Document vision OCR (free tier) |
+| CMA Gov Calculator | — | Compulsory insurance rates (with fallback) |
+| Bestie.co.il | — | Insurance comparison deep link |
+| Groq API | — | Whisper speech-to-text + LLM intent/conflict parsing |
+| Google Gemini API | — | Insurance document vision OCR (free tier) |
+| CMA Gov Calculator | — | Compulsory insurance rates (with calculated fallback) |
+| Bestie.co.il | — | Comprehensive insurance comparison deep link |
 
 ---
 
@@ -338,15 +386,23 @@ daily-backend/
 
 ---
 
-## Current Limitations / TODO
+## Roadmap / TODO
 
-- [ ] Authentication (currently uses hardcoded `user-demo-123`)
+**Completed:**
 - [x] ~~Reminder deletion / completion / editing~~ ✓ Implemented
-- [ ] Push notifications (requires dev build, not Expo Go)
-- [ ] Receipt scanning (camera button is placeholder)
-- [ ] Proactive insights (real AI analysis)
+- [x] ~~Flexible recurring reminders (daily / every X days / weekly / custom)~~ ✓ Implemented
+- [x] ~~Smart calendar conflict detection & AI suggestions~~ ✓ Implemented
+- [x] ~~Insurance document upload + AI vision parsing (Gemini)~~ ✓ Implemented
+- [x] ~~Insurance comparison with top 5 cheapest carriers + Bestie link~~ ✓ Implemented
+- [x] ~~Document upload in Profile (image picker + camera)~~ ✓ Implemented
+
+**Pending:**
+- [ ] Authentication (currently uses hardcoded `user-demo-123`)
+- [ ] Push notifications (requires dev build, not Expo Go — local notifications work)
+- [ ] Live CMA government API integration (currently uses calculated fallback)
+- [ ] Receipt scanning for groceries (camera button is placeholder)
 - [ ] Grocery list automation (real receipt parsing)
-- [ ] Document upload (profile screen is placeholder)
+- [ ] Medical document parsing (profile placeholder)
 - [ ] Multi-user support
 - [ ] Offline support / caching
 - [ ] expo-av migration to expo-audio (deprecated in SDK 55)
@@ -373,4 +429,4 @@ npx expo start
 
 ---
 
-*Last updated: August 27, 2026*
+*Last updated: August 30, 2026*

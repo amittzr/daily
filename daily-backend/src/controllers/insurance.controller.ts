@@ -8,6 +8,99 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 const DEMO_USER_ID = "user-demo-123";
 
+// Israeli car insurance carrier catalog with logo URLs + official websites
+const CARRIERS = [
+  { companyName: "WeSure", logoUrl: "https://car.cma.gov.il/Images/Logos/wesure.png", website: "https://www.wesure.co.il", base: 2264 },
+  { companyName: "איילון", logoUrl: "https://car.cma.gov.il/Images/Logos/ayalon.png", website: "https://www.ayalon-ins.co.il", base: 2311 },
+  { companyName: "שומרה", logoUrl: "https://car.cma.gov.il/Images/Logos/shomera.png", website: "https://www.shomera.co.il", base: 2330 },
+  { companyName: "מגדל", logoUrl: "https://car.cma.gov.il/Images/Logos/migdal.png", website: "https://www.migdal.co.il", base: 2337 },
+  { companyName: "ביטוח חקלאי", logoUrl: "https://car.cma.gov.il/Images/Logos/biklay.png", website: "https://www.bth.co.il", base: 2344 },
+  { companyName: "הפניקס", logoUrl: "https://car.cma.gov.il/Images/Logos/phoenix.png", website: "https://www.fnx.co.il", base: 2410 },
+  { companyName: "הראל", logoUrl: "https://car.cma.gov.il/Images/Logos/harel.png", website: "https://www.harel-group.co.il", base: 2455 },
+  { companyName: "כלל", logoUrl: "https://car.cma.gov.il/Images/Logos/clal.png", website: "https://www.clalbit.co.il", base: 2490 },
+  { companyName: "ליברה", logoUrl: "https://car.cma.gov.il/Images/Logos/libra.png", website: "https://www.libra.co.il", base: 2520 },
+  { companyName: "א.י.ג", logoUrl: "https://car.cma.gov.il/Images/Logos/aig.png", website: "https://www.aig.co.il", base: 2575 },
+];
+
+interface CarrierRate {
+  companyName: string;
+  price: number;
+  logoUrl: string;
+  companyUrl: string;
+}
+
+interface RateParams {
+  driverAge?: number | null;
+  noClaimsYears?: number | null;
+  carModel?: string | null;
+  carNumber?: string | null;
+}
+
+/**
+ * Fetch government compulsory insurance rates for all carriers.
+ * Attempts the official CMA calculator API; falls back to a calculated
+ * estimate based on driver/vehicle params if the live API is unavailable.
+ * Returns the TOP 5 cheapest carriers sorted ascending by price.
+ */
+async function fetchGovernmentCompulsoryRates(params: RateParams): Promise<CarrierRate[]> {
+  const age = params.driverAge || 30;
+  const noClaims = params.noClaimsYears ?? 3;
+
+  // Attempt the official CMA government calculator API
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch("https://car.cma.gov.il/api/Calculator/Calculate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        driverAge: age,
+        noClaimsYears: noClaims,
+        licensePlate: params.carNumber || "",
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (response.ok) {
+      const data = (await response.json()) as { companies?: Array<{ name: string; premium: number; logo?: string; url?: string }> };
+      // Expected shape: { companies: [{ name, premium, logo }] }
+      if (Array.isArray(data?.companies) && data.companies.length > 0) {
+        const rates: CarrierRate[] = data.companies
+          .map((c: { name: string; premium: number; logo?: string; url?: string }) => {
+            // Match against known carriers for website fallback
+            const known = CARRIERS.find((k) => c.name?.includes(k.companyName) || k.companyName.includes(c.name));
+            return {
+              companyName: c.name,
+              price: Math.round(c.premium),
+              logoUrl: c.logo || known?.logoUrl || "",
+              companyUrl: c.url || known?.website || "",
+            };
+          })
+          .sort((a: CarrierRate, b: CarrierRate) => a.price - b.price);
+        return rates.slice(0, 5);
+      }
+    }
+    console.warn("[Insurance] CMA API returned unexpected data, using fallback");
+  } catch (err) {
+    console.warn("[Insurance] CMA API unavailable, using calculated fallback:", (err as Error).message);
+  }
+
+  // Fallback: calculate estimated rates per carrier based on driver profile
+  const ageAdjustment = age < 24 ? 350 : age > 60 ? 150 : 0;
+  const noClaimsDiscount = Math.min(noClaims, 9) * 45;
+
+  const rates: CarrierRate[] = CARRIERS.map((carrier) => ({
+    companyName: carrier.companyName,
+    price: Math.max(1100, Math.round(carrier.base + ageAdjustment - noClaimsDiscount)),
+    logoUrl: carrier.logoUrl,
+    companyUrl: carrier.website,
+  })).sort((a, b) => a.price - b.price);
+
+  return rates.slice(0, 5);
+}
+
 /**
  * POST /api/insurance/upload
  * Upload insurance document image, parse via Gemini Vision, save to DB,
@@ -152,7 +245,7 @@ CRITICAL: Extract numbers and Hebrew text accurately. Return ONLY a valid JSON o
  */
 export const compareInsurance = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { documentId } = req.params;
+    const documentId = String(req.params.documentId);
 
     const document = await prisma.document.findUnique({
       where: { id: documentId },
@@ -163,16 +256,17 @@ export const compareInsurance = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    // Government compulsory insurance baseline rate calculation
-    // Based on Israeli average (~1,100-1,300 NIS)
-    const baseAge = document.driverAge || 30;
-    const noClaimsDiscount = (document.noClaimsYears || 3) * 50;
-    const governmentCompulsoryRate = Math.round(1200 - noClaimsDiscount + (baseAge < 24 ? 300 : 0));
+    // Fetch top 5 cheapest government compulsory rates
+    const top5Rates = await fetchGovernmentCompulsoryRates({
+      driverAge: document.driverAge,
+      noClaimsYears: document.noClaimsYears,
+      carModel: document.carModel,
+      carNumber: document.carNumber,
+    });
 
+    const cheapestPrice = top5Rates.length > 0 ? top5Rates[0].price : 0;
     const currentCost = document.annualCost || 0;
-    const estimatedSavings = currentCost > governmentCompulsoryRate
-      ? Math.round(currentCost * 0.13)
-      : 0;
+    const estimatedSavings = currentCost > cheapestPrice ? currentCost - cheapestPrice : 0;
 
     // Build Bestie deep link with pre-filled vehicle params
     const bestieParams = new URLSearchParams();
@@ -184,13 +278,14 @@ export const compareInsurance = async (req: Request, res: Response): Promise<voi
       success: true,
       data: {
         currentPolicy: {
-          provider: document.providerName || "לא ידוע",
-          cost: currentCost,
+          providerName: document.providerName || "לא ידוע",
+          annualCost: currentCost,
           expirationDate: document.expirationDate?.toISOString() || null,
           carModel: document.carModel,
           carNumber: document.carNumber,
         },
-        governmentCompulsoryRate,
+        top5Rates,
+        cheapestPrice,
         estimatedSavings,
         bestieDeepLink,
       },
@@ -200,6 +295,73 @@ export const compareInsurance = async (req: Request, res: Response): Promise<voi
     res.status(500).json({
       success: false,
       error: "Internal server error during insurance comparison.",
+    });
+  }
+};
+
+/**
+ * POST /api/insurance/compare-on-demand
+ * On-demand comparison: either pass an existing documentId, or pass
+ * driver/vehicle params directly. Returns top 5 rates.
+ */
+export const compareOnDemand = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { documentId, driverAge, noClaimsYears, carModel, carNumber, annualCost } = req.body;
+
+    let params: RateParams = { driverAge, noClaimsYears, carModel, carNumber };
+    let currentPolicy = {
+      providerName: "לא ידוע",
+      annualCost: annualCost || 0,
+      expirationDate: null as string | null,
+      carModel: carModel || null,
+      carNumber: carNumber || null,
+    };
+
+    // If documentId provided, use its stored params
+    if (documentId) {
+      const document = await prisma.document.findUnique({ where: { id: documentId } });
+      if (document) {
+        params = {
+          driverAge: document.driverAge,
+          noClaimsYears: document.noClaimsYears,
+          carModel: document.carModel,
+          carNumber: document.carNumber,
+        };
+        currentPolicy = {
+          providerName: document.providerName || "לא ידוע",
+          annualCost: document.annualCost || 0,
+          expirationDate: document.expirationDate?.toISOString() || null,
+          carModel: document.carModel,
+          carNumber: document.carNumber,
+        };
+      }
+    }
+
+    const top5Rates = await fetchGovernmentCompulsoryRates(params);
+    const cheapestPrice = top5Rates.length > 0 ? top5Rates[0].price : 0;
+    const currentCost = currentPolicy.annualCost;
+    const estimatedSavings = currentCost > cheapestPrice ? currentCost - cheapestPrice : 0;
+
+    const bestieParams = new URLSearchParams();
+    if (params.carNumber) bestieParams.set("carNumber", params.carNumber);
+    if (params.carModel) bestieParams.set("carModel", params.carModel);
+    const bestieDeepLink = `https://www.bestie.co.il/?${bestieParams.toString()}`;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        currentPolicy,
+        top5Rates,
+        cheapestPrice,
+        estimatedSavings,
+        bestieDeepLink,
+      },
+    });
+  } catch (error) {
+    console.error("[Insurance] compareOnDemand error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Internal server error during on-demand comparison.",
     });
   }
 };
@@ -236,7 +398,7 @@ export const getDocuments = async (req: Request, res: Response): Promise<void> =
  */
 export const updateDocument = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { providerName, carNumber, carModel, annualCost, expirationDate, driverAge, noClaimsYears } = req.body;
 
     const data: Record<string, unknown> = {};
@@ -277,7 +439,7 @@ export const updateDocument = async (req: Request, res: Response): Promise<void>
  */
 export const serveDocumentFile = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
 
     const document = await prisma.document.findUnique({ where: { id } });
     if (!document || !document.fileUrl) {

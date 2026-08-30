@@ -17,15 +17,23 @@ export interface InsuranceDocument {
   createdAt: string;
 }
 
+export interface CarrierRate {
+  companyName: string;
+  price: number;
+  logoUrl: string;
+  companyUrl: string;
+}
+
 export interface InsuranceComparison {
   currentPolicy: {
-    provider: string;
-    cost: number;
+    providerName: string;
+    annualCost: number;
     expirationDate: string | null;
     carModel: string | null;
     carNumber: string | null;
   };
-  governmentCompulsoryRate: number;
+  top5Rates: CarrierRate[];
+  cheapestPrice: number;
   estimatedSavings: number;
   bestieDeepLink: string;
 }
@@ -72,6 +80,36 @@ export async function uploadInsuranceDocument(imageUri: string): Promise<Insuran
  */
 export async function getInsuranceComparison(documentId: string): Promise<InsuranceComparison> {
   const response = await fetch(`${API_INSURANCE_URL}/compare/${documentId}`);
+
+  if (!response.ok) {
+    const errData = await response.json();
+    throw new Error(errData.error || `Server error ${response.status}`);
+  }
+
+  const result = await response.json();
+  if (!result.success || !result.data) {
+    throw new Error(result.error || "Unknown error");
+  }
+
+  return result.data;
+}
+
+/**
+ * On-demand insurance comparison — pass a documentId or manual params.
+ */
+export async function compareOnDemand(params: {
+  documentId?: string;
+  driverAge?: number;
+  noClaimsYears?: number;
+  carModel?: string;
+  carNumber?: string;
+  annualCost?: number;
+}): Promise<InsuranceComparison> {
+  const response = await fetch(`${API_INSURANCE_URL}/compare-on-demand`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
 
   if (!response.ok) {
     const errData = await response.json();

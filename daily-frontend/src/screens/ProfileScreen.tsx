@@ -16,6 +16,7 @@ import {
   InsuranceDocument,
 } from "../api/insuranceApi";
 import InsuranceDetailModal from "../components/InsuranceDetailModal";
+import InsuranceModal from "../components/InsuranceModal";
 
 interface ProfileScreenProps {
   onBack: () => void;
@@ -25,6 +26,7 @@ export default function ProfileScreen({ onBack }: ProfileScreenProps) {
   const [uploading, setUploading] = useState(false);
   const [insuranceDoc, setInsuranceDoc] = useState<InsuranceDocument | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [compareModalVisible, setCompareModalVisible] = useState(false);
 
   // Load existing insurance document on mount
   useEffect(() => {
@@ -183,6 +185,14 @@ export default function ProfileScreen({ onBack }: ProfileScreenProps) {
             </View>
           </View>
         </View>
+
+        {/* On-demand comparison button */}
+        <TouchableOpacity
+          style={styles.compareBtn}
+          onPress={() => setCompareModalVisible(true)}
+        >
+          <Text style={styles.compareBtnText}>🔍 השווה ביטוח רכב כעת</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Save Button */}
@@ -198,6 +208,14 @@ export default function ProfileScreen({ onBack }: ProfileScreenProps) {
         document={insuranceDoc}
         onClose={() => setDetailModalVisible(false)}
         onUpdated={(doc) => setInsuranceDoc(doc)}
+      />
+
+      {/* Insurance Comparison Modal (on-demand) */}
+      <InsuranceModal
+        visible={compareModalVisible}
+        documentId={insuranceDoc?.id || null}
+        onDemand
+        onClose={() => setCompareModalVisible(false)}
       />
     </View>
   );
@@ -332,6 +350,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     color: "#059669",
+  },
+  compareBtn: {
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#2563EB",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  compareBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#2563EB",
   },
   footer: {
     padding: 24,

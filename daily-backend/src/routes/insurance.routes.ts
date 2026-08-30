@@ -3,6 +3,7 @@ import multer from "multer";
 import {
   uploadInsurance,
   compareInsurance,
+  compareOnDemand,
   getDocuments,
   updateDocument,
   serveDocumentFile,
@@ -35,6 +36,9 @@ router.patch("/documents/:id", updateDocument);
 
 // GET /api/insurance/documents/:id/file — Serve the uploaded file
 router.get("/documents/:id/file", serveDocumentFile);
+
+// POST /api/insurance/compare-on-demand — On-demand comparison
+router.post("/compare-on-demand", compareOnDemand);
 
 // GET /api/insurance/compare/:documentId — Get comparison data
 router.get("/compare/:documentId", compareInsurance);

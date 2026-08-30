@@ -6,24 +6,33 @@ import {
   Modal,
   StyleSheet,
   ActivityIndicator,
-  Linking,
+  Image,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { getInsuranceComparison, InsuranceComparison } from "../api/insuranceApi";
+import * as WebBrowser from "expo-web-browser";
+import {
+  getInsuranceComparison,
+  compareOnDemand,
+  InsuranceComparison,
+} from "../api/insuranceApi";
 
 interface InsuranceModalProps {
   visible: boolean;
   documentId: string | null;
+  /** If true, uses the on-demand endpoint instead of GET compare */
+  onDemand?: boolean;
   onClose: () => void;
 }
 
 /**
- * Modal showing insurance comparison: current policy vs. government rate.
- * Provides a deep link to Bestie for full comparison.
+ * Modal showing insurance comparison: current policy vs. TOP 5 cheapest carriers.
+ * Provides a deep link to Bestie for comprehensive coverage comparison.
  */
 export default function InsuranceModal({
   visible,
   documentId,
+  onDemand,
   onClose,
 }: InsuranceModalProps) {
   const [loading, setLoading] = useState(true);
@@ -31,19 +40,27 @@ export default function InsuranceModal({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (visible && documentId) {
+    if (visible) {
       setLoading(true);
       setError(null);
-      getInsuranceComparison(documentId)
+      setData(null);
+
+      const fetcher = onDemand
+        ? compareOnDemand({ documentId: documentId || undefined })
+        : documentId
+        ? getInsuranceComparison(documentId)
+        : Promise.reject(new Error("אין מסמך ביטוח. העלה מסמך תחילה."));
+
+      fetcher
         .then(setData)
         .catch((err) => setError(err.message))
         .finally(() => setLoading(false));
     }
-  }, [visible, documentId]);
+  }, [visible, documentId, onDemand]);
 
-  const handleOpenBestie = () => {
+  const handleOpenBestie = async () => {
     if (data?.bestieDeepLink) {
-      Linking.openURL(data.bestieDeepLink);
+      await WebBrowser.openBrowserAsync(data.bestieDeepLink);
     }
   };
 
@@ -62,62 +79,93 @@ export default function InsuranceModal({
           </View>
 
           {loading && (
-            <ActivityIndicator size="large" color="#2563EB" style={{ marginTop: 40 }} />
+            <View style={styles.centerBox}>
+              <ActivityIndicator size="large" color="#2563EB" />
+              <Text style={styles.loadingText}>מחשב מחירים מהמאגר הממשלתי...</Text>
+            </View>
           )}
 
           {error && (
             <View style={styles.errorBox}>
-              <Text style={styles.errorText}>שגיאה: {error}</Text>
+              <Ionicons name="alert-circle-outline" size={24} color="#DC2626" />
+              <Text style={styles.errorText}>{error}</Text>
             </View>
           )}
 
           {data && !loading && (
-            <View style={styles.content}>
-              {/* Current Policy */}
-              <View style={styles.policyCard}>
-                <Text style={styles.policyLabel}>הפוליסה הנוכחית שלך</Text>
-                <View style={styles.policyRow}>
-                  <Text style={styles.policyValue}>₪{data.currentPolicy.cost?.toLocaleString()}</Text>
-                  <Text style={styles.policyProvider}>{data.currentPolicy.provider}</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Current Policy Benchmark */}
+              {data.currentPolicy.annualCost > 0 && (
+                <View style={styles.currentBox}>
+                  <Text style={styles.currentLabel}>התשלום השנתי הנוכחי שלך</Text>
+                  <View style={styles.currentRow}>
+                    <Text style={styles.currentValue}>
+                      ₪{data.currentPolicy.annualCost.toLocaleString()}
+                    </Text>
+                    <Text style={styles.currentProvider}>{data.currentPolicy.providerName}</Text>
+                  </View>
                 </View>
-                {data.currentPolicy.carModel && (
-                  <Text style={styles.policyDetail}>
-                    {data.currentPolicy.carModel} | {data.currentPolicy.carNumber}
-                  </Text>
-                )}
-                {data.currentPolicy.expirationDate && (
-                  <Text style={styles.policyExpiry}>
-                    תוקף עד: {new Date(data.currentPolicy.expirationDate).toLocaleDateString("he-IL")}
-                  </Text>
-                )}
-              </View>
+              )}
 
-              {/* Government Rate */}
-              <View style={styles.govCard}>
-                <Text style={styles.govLabel}>תעריף חובה ממשלתי (משוער)</Text>
-                <Text style={styles.govValue}>₪{data.governmentCompulsoryRate.toLocaleString()}</Text>
-              </View>
+              {/* Top 5 Cheapest Section */}
+              <Text style={styles.sectionTitle}>5 החברות הזולות בשוק (ביטוח חובה)</Text>
 
-              {/* Savings Badge */}
+              {data.top5Rates.map((rate, index) => (
+                <TouchableOpacity
+                  key={rate.companyName}
+                  style={[styles.rateRow, index === 0 && styles.rateRowCheapest]}
+                  activeOpacity={rate.companyUrl ? 0.6 : 1}
+                  onPress={() => {
+                    if (rate.companyUrl) WebBrowser.openBrowserAsync(rate.companyUrl);
+                  }}
+                >
+                  {/* Price */}
+                  <View style={styles.priceWrap}>
+                    <Text style={[styles.priceValue, index === 0 && styles.priceCheapest]}>
+                      ₪{rate.price.toLocaleString()}
+                    </Text>
+                    {index === 0 && (
+                      <View style={styles.cheapestBadge}>
+                        <Text style={styles.cheapestBadgeText}>הכי זול בשוק</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Company name + logo + link icon */}
+                  <View style={styles.companyWrap}>
+                    {rate.companyUrl ? (
+                      <Ionicons name="open-outline" size={14} color="#9CA3AF" />
+                    ) : null}
+                    <Text style={styles.companyName}>{rate.companyName}</Text>
+                    <Image
+                      source={{ uri: rate.logoUrl }}
+                      style={styles.logo}
+                      resizeMode="contain"
+                    />
+                  </View>
+                </TouchableOpacity>
+              ))}
+
+              {/* Savings */}
               {data.estimatedSavings > 0 && (
                 <View style={styles.savingsBadge}>
                   <Ionicons name="flash" size={16} color="#059669" />
                   <Text style={styles.savingsText}>
-                    חיסכון משוער: ₪{data.estimatedSavings.toLocaleString()} בשנה
+                    חיסכון פוטנציאלי: ₪{data.estimatedSavings.toLocaleString()} בשנה
                   </Text>
                 </View>
               )}
 
               {/* Bestie CTA */}
               <TouchableOpacity style={styles.bestieBtn} onPress={handleOpenBestie}>
-                <Text style={styles.bestieText}>השווה והשלם ב-Bestie</Text>
+                <Text style={styles.bestieText}>השלם השוואת מקיף ב-Bestie</Text>
                 <Ionicons name="open-outline" size={16} color="#FFFFFF" />
               </TouchableOpacity>
 
               <Text style={styles.disclaimer}>
-                * הנתונים מבוססים על חישוב משוער. לקבלת הצעה מדויקת יש להשלים את התהליך באתר.
+                * מחירי ביטוח חובה מבוססים על מחשבון רשות שוק ההון. הצעה סופית מותנית באתר המבטח.
               </Text>
-            </View>
+            </ScrollView>
           )}
         </View>
       </View>
@@ -131,15 +179,13 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.4)",
     justifyContent: "flex-end",
   },
-  backdropPress: {
-    flex: 1,
-  },
+  backdropPress: { flex: 1 },
   sheet: {
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
-    maxHeight: "85%",
+    maxHeight: "88%",
   },
   header: {
     flexDirection: "row",
@@ -150,85 +196,91 @@ const styles = StyleSheet.create({
     borderBottomColor: "#F3F4F6",
     marginBottom: 16,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#1F2937",
+  title: { fontSize: 18, fontWeight: "700", color: "#1F2937" },
+  centerBox: {
+    alignItems: "center",
+    paddingVertical: 40,
+    gap: 12,
   },
+  loadingText: { fontSize: 13, color: "#6B7280" },
   errorBox: {
+    alignItems: "center",
     backgroundColor: "#FEF2F2",
-    padding: 16,
+    padding: 20,
     borderRadius: 12,
     marginTop: 16,
+    gap: 8,
   },
-  errorText: {
-    color: "#DC2626",
-    fontSize: 13,
-    textAlign: "center",
-  },
-  content: {
-    gap: 14,
-  },
-  policyCard: {
+  errorText: { color: "#DC2626", fontSize: 13, textAlign: "center" },
+  currentBox: {
     backgroundColor: "#F9FAFB",
     borderRadius: 14,
     padding: 16,
     borderWidth: 1,
     borderColor: "#E5E7EB",
+    marginBottom: 16,
   },
-  policyLabel: {
+  currentLabel: {
     fontSize: 11,
     fontWeight: "700",
     color: "#6B7280",
     textAlign: "right",
     marginBottom: 8,
   },
-  policyRow: {
+  currentRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  policyProvider: {
-    fontSize: 16,
+  currentProvider: { fontSize: 15, fontWeight: "700", color: "#1F2937" },
+  currentValue: { fontSize: 20, fontWeight: "800", color: "#DC2626" },
+  sectionTitle: {
+    fontSize: 13,
     fontWeight: "700",
-    color: "#1F2937",
-  },
-  policyValue: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#DC2626",
-  },
-  policyDetail: {
-    fontSize: 12,
-    color: "#6B7280",
+    color: "#374151",
     textAlign: "right",
-    marginTop: 6,
+    marginBottom: 12,
   },
-  policyExpiry: {
-    fontSize: 11,
-    color: "#9CA3AF",
-    textAlign: "right",
+  rateRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
+    marginBottom: 8,
+    backgroundColor: "#FFFFFF",
+  },
+  rateRowCheapest: {
+    borderColor: "#A7F3D0",
+    backgroundColor: "#ECFDF5",
+  },
+  priceWrap: {
+    alignItems: "flex-start",
+  },
+  priceValue: { fontSize: 18, fontWeight: "800", color: "#1F2937" },
+  priceCheapest: { color: "#059669" },
+  cheapestBadge: {
+    backgroundColor: "#059669",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
     marginTop: 4,
   },
-  govCard: {
-    backgroundColor: "#EFF6FF",
-    borderRadius: 14,
-    padding: 14,
+  cheapestBadgeText: { fontSize: 9, fontWeight: "700", color: "#FFFFFF" },
+  companyWrap: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    gap: 10,
   },
-  govLabel: {
-    fontSize: 12,
-    color: "#1E40AF",
-    fontWeight: "600",
-    flex: 1,
-    textAlign: "right",
-  },
-  govValue: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#2563EB",
+  companyName: { fontSize: 14, fontWeight: "700", color: "#1F2937" },
+  logo: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: "#F9FAFB",
   },
   savingsBadge: {
     flexDirection: "row",
@@ -236,14 +288,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#ECFDF5",
     borderRadius: 10,
-    paddingVertical: 10,
+    paddingVertical: 12,
     gap: 8,
+    marginTop: 8,
+    marginBottom: 16,
   },
-  savingsText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#059669",
-  },
+  savingsText: { fontSize: 14, fontWeight: "700", color: "#059669" },
   bestieBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -258,15 +308,12 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
-  bestieText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
+  bestieText: { fontSize: 15, fontWeight: "700", color: "#FFFFFF" },
   disclaimer: {
     fontSize: 10,
     color: "#9CA3AF",
     textAlign: "center",
     lineHeight: 16,
+    marginTop: 12,
   },
 });

@@ -7,6 +7,7 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  TouchableOpacity,
 } from "react-native";
 import Header from "../components/Header";
 import ProactiveCard from "../components/ProactiveCard";
@@ -42,6 +43,7 @@ export default function DashboardScreen({
   const [conflictData, setConflictData] = useState<ConflictData | null>(null);
   const [insuranceDoc, setInsuranceDoc] = useState<InsuranceDocument | null>(null);
   const [insuranceModalVisible, setInsuranceModalVisible] = useState(false);
+  const [insuranceOnDemand, setInsuranceOnDemand] = useState(false);
 
   const loadReminders = useCallback(async () => {
     try {
@@ -168,6 +170,17 @@ export default function DashboardScreen({
           />
         )}
 
+        {/* On-Demand Insurance Comparison Button */}
+        <TouchableOpacity
+          style={styles.compareBtn}
+          onPress={() => {
+            setInsuranceOnDemand(true);
+            setInsuranceModalVisible(true);
+          }}
+        >
+          <Text style={styles.compareBtnText}>🔍 השווה ביטוח רכב כעת</Text>
+        </TouchableOpacity>
+
         {/* Reminders Section */}
         <View style={styles.remindersCard}>
           <Text style={styles.sectionTitle}>תזכורות קרובות ופעולות מהירות</Text>
@@ -234,7 +247,11 @@ export default function DashboardScreen({
       <InsuranceModal
         visible={insuranceModalVisible}
         documentId={insuranceDoc?.id || null}
-        onClose={() => setInsuranceModalVisible(false)}
+        onDemand={insuranceOnDemand}
+        onClose={() => {
+          setInsuranceModalVisible(false);
+          setInsuranceOnDemand(false);
+        }}
       />
     </View>
   );
@@ -244,6 +261,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F8FAFC",
+  },
+  compareBtn: {
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#2563EB",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  compareBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#2563EB",
   },
   scroll: {
     flex: 1,

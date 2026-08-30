@@ -437,7 +437,7 @@
 │         │                │                │         │
 │         ▼                ▼                ▼         │
 │  ┌──────────────────────────────────────────────┐   │
-│  │  API Layer: reminderApi.ts + voiceApi.ts     │   │
+│  │  API: reminderApi + voiceApi + insuranceApi │   │
 │  └──────────────────────┬───────────────────────┘   │
 └─────────────────────────┼───────────────────────────┘
                           │ HTTP (JSON / multipart)
@@ -445,20 +445,20 @@
 │  🖥️  Backend (Express)   │  :3000                    │
 │                          │                           │
 │  ┌───────────────────────┼────────────────────────┐  │
-│  │  /api/reminders       │  /api/voice/process    │  │
-│  └───────────┬───────────┼────────────┬───────────┘  │
-│              │                        │              │
-│              ▼                        ▼              │
-│  ┌───────────────┐    ┌──────────────────────────┐   │
-│  │   Reminder    │    │   Voice Controller       │   │
-│  │  Controller   │    │  Whisper → LLM → DB      │   │
-│  └───────┬───────┘    └────────────┬─────────────┘   │
-│          │                         │                 │
-│          ▼                         ▼                 │
+│  │ /api/reminders · /api/voice · /api/insurance   │  │
+│  └────┬──────────────┬────────────────┬────────────┘  │
+│       ▼              ▼                ▼               │
+│  ┌─────────┐  ┌─────────────┐  ┌──────────────────┐   │
+│  │Reminder │  │ Voice Ctrl  │  │ Insurance Ctrl   │   │
+│  │Ctrl     │  │ Whisper→LLM │  │ Gemini + CMA gov │   │
+│  └────┬────┘  └──────┬──────┘  └────────┬─────────┘   │
+│       └──────────────┼──────────────────┘             │
+│                      ▼                                │
 │  ┌───────────────────────────────────────────────┐   │
 │  │  🗄️  Prisma ORM → PostgreSQL 15 (Docker)      │   │
 │  └───────────────────────────────────────────────┘   │
-└──────────────────────────────────────────────────────┘</div>
+└──────────────────────────────────────────────────────┘
+  External: Groq · Google Gemini · Bestie · CMA gov</div>
   </div>
 
   <!-- Database -->
@@ -551,7 +551,12 @@
           <tr>
             <td><span class="method-badge method-get">GET</span></td>
             <td><code>/api/insurance/compare/:documentId</code></td>
-            <td>Insurance comparison (cost, savings, Bestie link)</td>
+            <td>Comparison + top 5 cheapest carriers</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-post">POST</span></td>
+            <td><code>/api/insurance/compare-on-demand</code></td>
+            <td>On-demand comparison (documentId or manual params)</td>
           </tr>
           <tr>
             <td><span class="method-badge method-get">GET</span></td>
@@ -619,8 +624,8 @@
       </div>
       <div class="feature-card">
         <span class="feature-tag tag-active">Active</span>
-        <h3>Insurance Comparison & Bestie</h3>
-        <p>ProactiveCard appears when policy expires within 60 days. Shows current cost vs. government rate, estimated savings, and 1-click link to Bestie.co.il with pre-filled car params.</p>
+        <h3>Insurance Comparison & Top 5 Carriers</h3>
+        <p>On-demand "🔍 השווה ביטוח רכב כעת" button. Fetches top 5 cheapest carriers (CMA gov API + fallback) with logos, exact prices, and tappable company links. Cheapest gets "הכי זול בשוק" badge. Savings estimate + Bestie deep link via expo-web-browser.</p>
       </div>
       <div class="feature-card shell">
         <span class="feature-tag tag-shell">UI Shell</span>
@@ -649,6 +654,7 @@
           <tr><td><strong>5h – 2 days</strong></td><td>🔔 2 hours before → 🔔 exact time</td></tr>
           <tr><td><strong>&lt; 5 hours</strong></td><td>🔔 exact time only</td></tr>
           <tr><td><strong>Appointments</strong> (תור, רופא...)</td><td>+ extra 🔔 5 hours before</td></tr>
+          <tr><td><strong>Recurring</strong> (🔄)</td><td>Auto-reschedule to next cycle on completion</td></tr>
         </tbody>
       </table>
     </div>
@@ -663,6 +669,7 @@
         <div class="tree-item"><span class="tree-branch">├──</span> <span class="file">App.tsx</span> <span class="desc">Root + nav + modals</span></div>
         <div class="tree-item"><span class="tree-branch">├──</span> <span class="folder">src/api/</span></div>
         <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="file">reminderApi.ts</span></div>
+        <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="file">insuranceApi.ts</span></div>
         <div class="tree-item"><span class="tree-branch">│   └──</span> <span class="file">voiceApi.ts</span></div>
         <div class="tree-item"><span class="tree-branch">├──</span> <span class="folder">src/components/</span></div>
         <div class="tree-item"><span class="tree-branch">│   ├──</span> <span class="file">DateTimePicker.tsx</span></div>
@@ -719,9 +726,10 @@
           <tr><td>Backend (Express)</td><td>3000</td><td>Hot-reload via tsx watch</td></tr>
           <tr><td>PostgreSQL</td><td>5433</td><td>Docker, mapped from 5432</td></tr>
           <tr><td>Expo Dev Server</td><td>8081</td><td>Web + QR code for Expo Go</td></tr>
-          <tr><td>Groq API</td><td>—</td><td>Speech-to-text + LLM intent parsing</td></tr>
-          <tr><td>Google Gemini API</td><td>—</td><td>Document vision OCR (free tier)</td></tr>
-          <tr><td>Bestie.co.il</td><td>—</td><td>Insurance comparison deep link</td></tr>
+          <tr><td>Groq API</td><td>—</td><td>Speech-to-text + LLM intent/conflict parsing</td></tr>
+          <tr><td>Google Gemini API</td><td>—</td><td>Insurance document vision OCR (free tier)</td></tr>
+          <tr><td>CMA Gov Calculator</td><td>—</td><td>Compulsory insurance rates (calculated fallback)</td></tr>
+          <tr><td>Bestie.co.il</td><td>—</td><td>Comprehensive insurance comparison deep link</td></tr>
         </tbody>
       </table>
     </div>
@@ -749,13 +757,18 @@ npx expo start</div>
   <div class="section">
     <h2 class="section-title">Roadmap / TODO</h2>
     <ul class="todo-list">
-      <li>Authentication (replace hardcoded user-demo-123)</li>
       <li class="done">Reminder deletion / completion / editing ✓</li>
-      <li>Push notifications (requires dev build)</li>
-      <li>Receipt scanning via camera</li>
-      <li>Proactive AI insights (real analysis)</li>
-      <li>Grocery list automation (receipt parsing)</li>
-      <li>Document upload & processing</li>
+      <li class="done">Flexible recurring reminders (daily / every X days / weekly / custom) ✓</li>
+      <li class="done">Smart calendar conflict detection & AI suggestions ✓</li>
+      <li class="done">Insurance document upload + AI vision parsing (Gemini) ✓</li>
+      <li class="done">Insurance comparison — top 5 cheapest carriers + Bestie link ✓</li>
+      <li class="done">Document upload in Profile (image picker + camera) ✓</li>
+      <li>Authentication (replace hardcoded user-demo-123)</li>
+      <li>Push notifications (requires dev build — local notifications work)</li>
+      <li>Live CMA government API integration (currently calculated fallback)</li>
+      <li>Receipt scanning for groceries (camera placeholder)</li>
+      <li>Grocery list automation (real receipt parsing)</li>
+      <li>Medical document parsing (profile placeholder)</li>
       <li>Multi-user support</li>
       <li>Offline support / caching</li>
       <li>Migrate expo-av → expo-audio (deprecated in SDK 55)</li>
@@ -765,7 +778,7 @@ npx expo start</div>
 </div>
 
 <div class="footer">
-  Daily App Specification — Last updated: August 27, 2026
+  Daily App Specification — Last updated: August 30, 2026
 </div>
 
 </body>
